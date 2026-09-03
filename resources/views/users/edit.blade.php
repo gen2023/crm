@@ -1,0 +1,14 @@
+@extends('layouts.app')
+
+@section('title', 'Редактирование пользователя — CRM')
+
+@section('content')
+    <h1>Редактирование «{{ $user->name }}»</h1>
+
+    <form method="POST" action="{{ route('users.update', $user) }}">
+        @csrf
+        @method('PUT')
+        @include('users.partials.form', ['user' => $user])
+        <button class="btn" type="submit">Сохранить</button>
+    </form>
+@endsection

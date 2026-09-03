@@ -26,6 +26,9 @@
 <body>
     <nav>
         <a href="{{ route('dashboard') }}">Dashboard</a>
+        @can('users.view')
+            <a href="{{ route('users.index') }}">Users</a>
+        @endcan
         @can('roles.view')
             <a href="{{ route('roles.index') }}">Roles</a>
         @endcan

@@ -271,3 +271,53 @@ DONE
 
 Next step:
 Awaiting explicit confirmation. Proposed: Step 5 — Users (CRUD, status, role assignment via the now-existing Roles/Permissions, self-protection and last-administrator protection), per `PHASE-1-SPEC.md`.
+
+---
+
+## Step 5 — Users
+
+Date: 2026-09-03
+
+Goal:
+Users CRUD (list/view/create/edit/deactivate/reactivate), role assignment, self-protection, and last-administrator protection, per `PHASE-1-SPEC.md`. This is the first module to use a `Policy` for object-level authorization, per `ARCHITECTURE.md`'s own worked example ("can this admin remove this specific role from this specific user without leaving zero admins").
+
+Changed files:
+- `app/Models/User.php` — added `'status'` to the `#[Fillable(...)]` attribute (see Problems below — this was a real, pre-existing bug this step exposed and fixed). `last_login_at` deliberately stays non-fillable; it's only ever set via `forceFill()` in `AuthService`.
+- `app/Providers/AppServiceProvider.php` — registered `Gate::policy(User::class, UserPolicy::class)` (the policy lives in `app/Modules/Users/Policies`, outside Laravel's auto-discovery path, so it needs explicit registration — same reasoning as why Roles' Gate checks needed no such step: those are coarse permission checks, not policies).
+- `resources/views/layouts/app.blade.php` — added a "Users" nav link, gated by `@can('users.view')`.
+- `docs/IMPLEMENTATION-LOG.md` — this entry.
+
+Created files:
+- `app/Modules/Users/Requests/{StoreUserRequest,UpdateUserRequest}.php` — `name`, `email` (unique, ignoring self on update), `password` (required+confirmed on create, nullable+confirmed on update, `Password::min(8)`), `status` (`in:active,inactive`), `roles.*` (must exist in `roles`).
+- `app/Modules/Users/Policies/UserPolicy.php` — `deactivate(actor, target)`: false if `actor->is(target)` (self-protection) or `target` is the last active user holding the `admin` role; `removeAdminRole(actor, target)`: false if `target` is the last active admin. Both funnel through one private `isLastActiveAdmin()` check.
+- `app/Modules/Users/Services/UserService.php` — `paginate()`, `allRoles()`, `create()`, `update()` (calls `Gate::authorize('removeAdminRole', ...)` when the submitted roles would drop `admin` from a user who has it, and `Gate::authorize('deactivate', ...)` when the submitted status flips to `inactive`), `deactivate()` (dedicated action, same Gate check), `activate()` (no protection needed — reactivating is never destructive).
+- `app/Modules/Users/Controllers/UserController.php` — thin resource controller (index/create/store/show/edit/update/destroy/activate), all delegating to `UserService`; `AuthorizationException` from the Policy checks is left to Laravel's default exception handling (renders as `403`, no custom try/catch needed).
+- `app/Modules/Users/routes.php` — `/users` resource routes + `POST /users/{user}/activate`, behind `auth` + one `can:users.<action>` middleware per route (coarse permission gate; the Policy handles the object-level rules on top).
+- `resources/views/users/{index,create,edit,show}.blade.php`, `resources/views/users/partials/form.blade.php` — extend `layouts.app`; the index hides the deactivate/activate action for the current user's own row (UX convenience only — the backend Policy is what actually enforces it).
+- `tests/Feature/Users/UserTest.php` — 14 tests: guest redirected, 403 without permission, list, create-with-role-and-immediate-login, email uniqueness on create, edit, email uniqueness on edit, deactivate, reactivate, self-deactivation blocked, last-active-admin deactivation blocked, deactivation allowed when another active admin remains, admin-role removal blocked on the last active admin, admin-role removal allowed when another active admin remains.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan route:list` — confirms all 8 `users.*` routes registered via the existing module auto-discovery loop.
+- Live HTTP smoke test against the running Apache/MySQL stack, as `genodessa@gmail.com` (the sole seeded `admin`): `/users` → `200`; created a new user with the `manager` role through the real HTML form (`302`), confirmed via `tinker` the role was attached; deactivated that user through the real form (`302`, status flips to `inactive` in MySQL); attempted to deactivate **self** (the last active admin) through the real form → `403`, status unchanged. Temporary user removed afterward.
+
+Tests:
+- `php artisan test` — 38/38 passed (14 new Users tests + the 24 from Steps 1-4), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes this step; ran against the already-running stack.
+
+Problems and resolution:
+1. First test run: `admin can deactivate another user`, `admin can reactivate a user`, and `admin can be deactivated when another active admin remains` all failed — the target's `status` column silently stayed unchanged after `UserService::deactivate()`/`activate()`/`update()`. Root cause: `App\Models\User`'s `#[Fillable(...)]` attribute never included `status` (it was added to the `users` table in Step 2, but the model's mass-assignment allowlist was never updated), so `User::update(['status' => ...])` was silently dropping the field — Laravel's default mass-assignment protection fails closed rather than throwing. `create()` happened to look correct in testing only because the DB column's default (`active`) matched what was being requested; deliberately creating a user as `inactive` would have silently produced an `active` one. Fixed by adding `'status'` to `#[Fillable(...)]`. This is exactly the kind of correctness bug the "run tests after every step" rule (`ARCHITECTURE.md`/project rules) is meant to catch before it reaches real usage.
+2. During the live HTTP check, an early `grep -o` for the CSRF token returned two identical matches on the page and, once, a corrupted concatenated value when piped through `sed` without `head -1`, producing a `419` on the first live create attempt — a test-tooling artifact, not an application bug; fixed by taking `head -1` of the match before extracting the value.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: Audit Log (wire the existing `AuditLogger`/`audit_logs` table into Users/Roles mutations), a real Dashboard (currently a placeholder from Step 2), custom error pages (403/404/422/500), and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account).
