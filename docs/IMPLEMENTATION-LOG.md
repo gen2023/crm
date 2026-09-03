@@ -456,3 +456,45 @@ DONE
 
 Next step:
 Step 9 — apply the same design system to Users/Roles (icon actions instead of text links, white bordered cards for create/edit/view), per the agreed 8/9/10 sequence.
+
+---
+
+## Step 9 — Users/Roles on the design system
+
+Date: 2026-09-03
+
+Goal:
+Apply Step 8's tokens/components to Users and Roles: row actions become icon buttons (view/edit/deactivate-activate/delete) instead of text links, and every page (list included, for consistent padding/border per the brief) sits inside a `.card`.
+
+Changed files:
+- `resources/views/layouts/app.blade.php` — added `.row-actions`/`.icon-btn` (30px square, transparent, `.danger`/`.success` hover-color variants) for row-level icon actions; `.btn` became a flex container so an icon can sit next to its label; extended the shared input styling to `select` and `input[type=password]` (previously only `text`/`email`); table no longer sets its own white background (it now always sits inside a `.card`, which already provides it) and its row divider color was softened to match the new palette.
+- `resources/views/components/icon.blade.php` — added a `check` icon (used for the "reactivate" action).
+- `resources/views/users/{index,create,edit,show}.blade.php` — index: create button gets a `plus` icon; each row's actions are now `eye`/`pencil`/`trash`/`check` icon buttons (`title` attributes for hover text — screen-reader/accessibility label), same permission gating and same-user self-action hiding as before; table wrapped in `.card`. create/edit/show: form and detail content wrapped in `.card`.
+- `resources/views/roles/{index,create,edit,show}.blade.php` — identical treatment (`eye`/`pencil`/`trash`, `.card` wrapping).
+
+Created files:
+None.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan view:clear` + live check against the running stack, logged in as `genodessa@gmail.com`: `/users` and `/roles` both return the table inside `class="card"` with `.icon-btn`/`.row-actions` markup present; `/users/create` form is inside `class="card"`.
+
+Tests:
+- `php artisan test` — 56/56 still passing; no test asserted on the old text-link markup ("Просмотр"/"Редактировать" etc. were never asserted by name in `UserTest`/`RoleTest`, only status codes and data), so no test changes were needed.
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None.
+
+Status:
+DONE
+
+Next step:
+Step 10 — real Dashboard module (recent-logins card sourced from `audit_logs`, replacing the Step 2 placeholder route/view) and `AdminUserSeeder`, per the agreed 8/9/10 sequence and the detailed spec already shared with the project owner.

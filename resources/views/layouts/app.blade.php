@@ -48,17 +48,30 @@
         .content-inner { max-width: 1000px; margin: 0 auto; }
 
         .card { background: #fff; border-radius: 12px; border: 1px solid #ece3d0; padding: 1.5rem; }
+        .card + .card { margin-top: 1.5rem; }
 
-        table { width: 100%; border-collapse: collapse; background: #fff; }
-        th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid #f0ece0; font-size: .9rem; }
+        tbody tr:last-child td { border-bottom: none; }
         .status { color: #15803d; font-size: .875rem; margin-bottom: 1rem; }
         .errors { color: #b91c1c; font-size: .875rem; margin-bottom: 1rem; }
-        .btn { display: inline-block; padding: .4rem .8rem; background: var(--color-accent); color: #000; text-decoration: none; border-radius: 6px; font-size: .85rem; border: none; cursor: pointer; font-weight: 600; }
+        .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--color-accent); color: #000; text-decoration: none; border-radius: 8px; font-size: .85rem; border: none; cursor: pointer; font-weight: 600; }
+        .btn .icon { width: 16px; height: 16px; }
         .btn-danger { background: #dc2626; color: #fff; }
         label { display: block; margin-top: 1rem; font-size: .875rem; }
-        input[type=text], input[type=email], textarea { width: 100%; padding: .5rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: 1px solid #ddd; }
+        input[type=text], input[type=email], input[type=password], textarea, select { width: 100%; padding: .55rem .7rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: none; background: var(--bg-input); font-size: .9rem; }
         .permissions { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
-        h1 { font-size: 1.25rem; }
+        h1 { font-size: 1.25rem; margin-top: 0; }
+
+        .row-actions { display: flex; align-items: center; gap: .35rem; }
+        .icon-btn {
+            display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+            border-radius: 6px; border: none; background: none; color: #666; cursor: pointer; text-decoration: none; padding: 0;
+        }
+        .icon-btn .icon { width: 17px; height: 17px; }
+        .icon-btn:hover { background: var(--bg-input); color: #333; }
+        .icon-btn.danger:hover { background: #fde8e8; color: #dc2626; }
+        .icon-btn.success:hover { background: #e6f6ec; color: #15803d; }
     </style>
 </head>
 <body>
