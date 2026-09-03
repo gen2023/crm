@@ -597,3 +597,68 @@ DONE
 
 Next step:
 Per the project owner: move on to the Customers module (Phase 2 scope). Not yet spec'd — awaiting requirements (fields, permissions, relation to Orders) before planning a step, per the usual workflow.
+
+---
+
+## Step 12 — Customers (first Phase 2 module)
+
+Date: 2026-09-03
+
+Goal:
+First Phase 2 module: Customers CRUD (list/create/edit/view; no delete — see Design notes), gathered from the project owner over a short Q&A rather than a written spec, since Phase 2 doesn't have a `PHASE-2-SPEC.md` yet.
+
+Fields, as clarified over the discussion:
+- Manually entered: `name` (ФИО), `phone` (unique), `email` (nullable, not unique).
+- Captured, not manually typed (nullable, shown read-only): `ip`, `utm` (single JSON column — the owner explicitly wants one field holding `utm_source=...` etc. as JSON, not separate `utm_source`/`utm_medium`/`utm_campaign` columns).
+- Order aggregates (owner: "да, поля в БД" — real columns now, defaulted, to be kept current by the future Orders module): `total_orders_amount`, `last_order_at`, `orders_count`, `completed_orders_count`, `cancelled_orders_count`.
+- `reliability()` — **not stored**; a Model accessor computed as `completed / (completed + cancelled) * 100`, rounded to 1 decimal, `null` when both counts are 0 (order statuses per the owner: новый/доставляется/завершён/отменён — only завершён/отменён count toward reliability).
+- "Источник" (source) was in the original field list but the owner clarified mid-discussion it belongs to **Orders**, not Customers — see the new `docs/BACKLOG.md` entry.
+
+Changed files:
+- `database/seeders/RolePermissionSeeder.php` — added `customers.view`/`customers.create`/`customers.edit` to `PERMISSIONS` (no `customers.delete` — no delete action exists to gate). Also fixed a real bug found while re-seeding live (see Problems): now calls `PermissionRegistrar::forgetCachedPermissions()` before creating new permissions and again before `syncPermissions()`.
+- `resources/views/layouts/app.blade.php` — added a "Customers" sidebar link (`@can('customers.view')`, new `customers` icon), positioned above Users.
+- `resources/views/components/icon.blade.php` — added a `customers` icon (ID-card style, distinct from the existing multi-person `users` icon).
+- `docs/BACKLOG.md` — new entry: the future "Sources/Integrations" module (marketplace order-ingestion: Prom, Rozetka, Maudau, OLX, Epicentr, Kasta, Umall — API keys + pulling orders in), which is where "source" actually belongs.
+
+Created files:
+- `database/migrations/2026_09_03_190000_create_customers_table.php`.
+- `app/Models/Customer.php` — `casts()`: `utm` → `array`, `total_orders_amount` → `decimal:2`, `last_order_at` → `datetime`; `reliability(): ?float` accessor described above.
+- `database/factories/CustomerFactory.php`.
+- `app/Modules/Customers/Requests/{StoreCustomerRequest,UpdateCustomerRequest}.php` — `name` required, `phone` required + unique (ignoring self on update), `email` nullable/email. Order-aggregate fields and `ip`/`utm` are deliberately **not** in the validated rule set, so nothing submitted under those keys can ever reach `CustomerService`.
+- `app/Modules/Customers/Services/CustomerService.php` — `paginate()`, `create()`, `update()`; both mutation methods only ever write `name`/`phone`/`email` (the aggregate/tracking fields are never touched here — they wait for the Orders module), and both call `AuditLogger` (`customer.created`/`customer.updated`), matching the Users/Roles convention.
+- `app/Modules/Customers/Controllers/CustomerController.php` — thin: index/create/store/show/edit/update (no `destroy`).
+- `app/Modules/Customers/routes.php` — `/customers` resource routes (no `DELETE`), behind `auth` + one `can:customers.<action>` middleware per route.
+- `resources/views/customers/{index,create,edit,show}.blade.php`, `resources/views/customers/partials/form.blade.php` — same card/icon-button pattern as Users/Roles; create/edit forms only expose `name`/`phone`/`email`; `show` additionally displays `ip`, raw `utm` JSON, and the order-aggregate block (count/sum/last-order-date/reliability) as read-only.
+- `tests/Feature/Customers/CustomerTest.php` — 9 tests: guest redirected, 403 without permission, list, create, phone uniqueness on create, **aggregate fields cannot be set through the create form** (posts `orders_count`/`total_orders_amount`, asserts they stayed at 0), edit, phone uniqueness on edit (ignoring self), and `reliability()` correctness (no orders → `null`, 3 completed/1 cancelled → `75.0`, 0 completed/2 cancelled → `0.0`).
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Design notes (not architecturally significant):
+- No delete/deactivate action for Customers in this step — unlike Users, nothing was specified about a customer lifecycle, and deleting a customer with linked order history would be a much riskier default than deleting a user; left out rather than guessed at. Easy to add once the owner decides what it should mean (hard delete vs. some status).
+- `ip`/`utm` are excluded from the create/edit forms on purpose: they're metadata a lead-capture integration would populate, not something a staff member operating this admin UI would type in by hand.
+
+Checks:
+- `php artisan migrate --force` — `customers` table created on MySQL.
+- `php artisan route:list` — confirms all 6 `customers.*` routes.
+- Live HTTP check against the running stack, logged in as `genodessa@gmail.com`: created a customer with a Cyrillic name through the real form, confirmed it in MySQL via `tinker` and in the `/customers` list page. Temporary customer and log contents removed afterward.
+
+Tests:
+- `php artisan test` — 72/72 passed (9 new Customers tests), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+1. First live create attempt returned `403` — the newly added `customers.*` permission slugs existed in code (`RolePermissionSeeder`) but the live MySQL database hadn't been re-seeded yet. Expected, not a bug; fixed by running `db:seed --force`.
+2. Re-seeding then failed with `Spatie\Permission\Exceptions\PermissionDoesNotExist: There is no permission named 'customers.view'` — thrown from `syncPermissions()` immediately after the same seeder had just created that exact permission a few lines earlier. Root cause: Spatie caches the full permission list in the app's default cache store (`database` here), which persists across process runs; a prior seeding of the original 8 permissions had already populated that cache, so this run's `syncPermissions()` call read the stale cached list and didn't see the 3 new slugs, even though they were already committed to the `permissions` table. Fixed by calling `app(PermissionRegistrar::class)->forgetCachedPermissions()` before creating permissions and again right before `syncPermissions()` — makes the seeder safe to re-run after `PERMISSIONS` gains new entries, not just on a first run against an empty database.
+3. Second live create attempt returned `500`: `SQLSTATE[HY000]: 1366 Incorrect string value ... for column 'name'`. The byte sequence in the error was not valid UTF-8 (invalid continuation bytes) — traced to the Cyrillic text being typed directly into a `curl --data-urlencode` argument in this session's Bash tool, which mangled the encoding somewhere in the Windows/Git-Bash shell layer before curl ever saw it. Confirmed harmless (not an app or schema bug — `config('database.connections.mysql.charset')` is `utf8mb4`) by resending the same request with the Cyrillic value pre-encoded as literal `%D0%A1...` UTF-8 percent-escapes in a payload file (bypassing shell string interpretation entirely) — that request succeeded and stored "Смоук Тест" correctly. Testing-tooling artifact only; no code change. Worth remembering for any future live check involving non-ASCII input from this shell.
+
+Status:
+DONE
+
+Next step:
+Awaiting the project owner's next direction. Candidates: continue Phase 2 with Products or Orders (Orders would let the Customer aggregate fields/reliability actually start populating), or the Sources/Integrations module now noted in `docs/BACKLOG.md`.

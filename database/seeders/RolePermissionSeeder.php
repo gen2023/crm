@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -24,6 +25,9 @@ class RolePermissionSeeder extends Seeder
         'roles.create',
         'roles.edit',
         'roles.delete',
+        'customers.view',
+        'customers.create',
+        'customers.edit',
     ];
 
     /**
@@ -36,6 +40,13 @@ class RolePermissionSeeder extends Seeder
 
     public function run(): void
     {
+        // Spatie caches the permission list (in the app's default cache
+        // store, so it can survive across requests/processes). Without
+        // clearing it first, re-running this seeder after new slugs were
+        // added to PERMISSIONS fails: syncPermissions() below would still
+        // see the stale cached list and report the new ones as unknown.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (self::PERMISSIONS as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
@@ -43,6 +54,8 @@ class RolePermissionSeeder extends Seeder
         foreach (self::ROLES as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         Role::findByName('admin')->syncPermissions(self::PERMISSIONS);
     }

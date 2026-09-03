@@ -112,6 +112,12 @@
                     <x-icon name="dashboard" />
                     <span class="label">Dashboard</span>
                 </a>
+                @can('customers.view')
+                    <a href="{{ route('customers.index') }}" class="sidebar-link {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                        <x-icon name="customers" />
+                        <span class="label">Customers</span>
+                    </a>
+                @endcan
                 @can('users.view')
                     <a href="{{ route('users.index') }}" class="sidebar-link {{ request()->routeIs('users.*') ? 'active' : '' }}">
                         <x-icon name="users" />

@@ -14,6 +14,7 @@
         'plus' => '<path d="M12 5v14"/><path d="M5 12h14"/>',
         'check' => '<path d="M5 13l4 4L19 7"/>',
         'chevron-down' => '<path d="M5 8.5l7 7 7-7"/>',
+        'customers' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10.5" r="2"/><path d="M6 16.5c0-1.8 1.4-3 3-3s3 1.2 3 3"/><path d="M14 9.5h4"/><path d="M14 13h4"/>',
     ];
 @endphp
 
