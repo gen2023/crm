@@ -15,7 +15,7 @@ class DashboardTest extends TestCase
         $this->get('/dashboard')->assertRedirect('/login');
     }
 
-    public function test_authenticated_user_sees_their_own_info(): void
+    public function test_authenticated_user_sees_their_own_name_in_the_topbar(): void
     {
         $user = User::factory()->create(['name' => 'Dash User']);
 
@@ -23,7 +23,7 @@ class DashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Dash User');
-        $response->assertSee($user->email);
+        $response->assertSee('История заходов');
     }
 
     public function test_recent_logins_card_shows_only_the_five_most_recent_entries(): void

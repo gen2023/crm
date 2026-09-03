@@ -13,6 +13,7 @@
         'trash' => '<path d="M4 7h16"/><path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"/><path d="M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13"/>',
         'plus' => '<path d="M12 5v14"/><path d="M5 12h14"/>',
         'check' => '<path d="M5 13l4 4L19 7"/>',
+        'chevron-down' => '<path d="M5 8.5l7 7 7-7"/>',
     ];
 @endphp
 

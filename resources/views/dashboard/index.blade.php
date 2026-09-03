@@ -26,12 +26,4 @@
             </tbody>
         </table>
     </div>
-
-    <div class="card">
-        <h2 style="font-size:1rem;margin-top:0;">Профиль</h2>
-        <p>Добро пожаловать, {{ $user->name }}</p>
-        <p>Email: {{ $user->email }}</p>
-        <p>Роли: {{ $user->getRoleNames()->implode(', ') ?: '—' }}</p>
-        <p>Последний вход: {{ $user->last_login_at?->format('d.m.Y H:i') ?? '—' }}</p>
-    </div>
 @endsection

@@ -549,3 +549,51 @@ DONE
 
 Next step:
 Phase 1 scope per `PHASE-1-SPEC.md` is now functionally complete (Foundation, Docker, Authentication, Password Reset, Users, Roles, Permissions, User Status, Audit Log, Dashboard, Validation, Error Handling, base UI, Security, Testing, Seeders all implemented and tested). Remaining before formally closing Phase 1: a pass against the full Definition of Done checklist in `PHASE-1-SPEC.md`, and a decision from the project owner on whether any further UI polish is wanted before moving to Phase 2 scope (Customers/Products/Orders/...).
+
+---
+
+## Step 11 — UI fixes (dark sidebar, button/link colors, icon-size bug) + Dashboard user-menu + Profile page
+
+Date: 2026-09-03
+
+Goal:
+Project owner feedback on Steps 8-10's visual pass: button text should be white (not black), the sidebar should be a dark `#242424` background with white link text (hover `#f8b02c`), the sidebar collapse button was invisible (though clickable), colors should be centralized as CSS variables, the Dashboard's "Профиль" card should be removed in favor of a top-right name + popup ("Просмотр" / "Выход"), and the flow should move on to Customers next. Also captures a new `docs/BACKLOG.md` note about a future API module (Products/Orders/Users CRUD) mentioned in passing.
+
+Changed files:
+- `resources/views/layouts/app.blade.php` — full token rewrite: `:root` now defines `--color-bg-page`, `--color-bg-input`, `--color-primary`, `--color-accent`, `--color-accent-hover`, `--color-text-on-accent`, `--color-danger`, `--color-success`, `--color-sidebar-bg`, `--color-sidebar-text`, `--color-card-border`, plus the existing sidebar-width tokens. Sidebar background → `var(--color-sidebar-bg)` (`#242424`); link/toggle text → `var(--color-sidebar-text)` (white); hover/active state → `var(--color-accent-hover)` (`#f8b02c`), applied as a text-color change (no background swap, matching "текст ссылок... ховер ссылок" literally). `.btn`/`.btn-danger` text → `var(--color-text-on-accent)` (white). Added a base `svg.icon { width: 20px; height: 20px; }` rule (root cause fix for the invisible-but-clickable collapse button — see Problems). Removed the sidebar's bottom logout block entirely; added a `.topbar` at the top of every page's content area with a `.user-menu` (current user's name + a chevron, `hidden`-attribute dropdown with "Просмотр" → `/profile` and a "Выход" form) — implemented in the shared layout (not only on the Dashboard template) so logout stays reachable from every authenticated page now that it's no longer in the sidebar; toggled via a second small vanilla-JS block (click to open, click-outside or Escape to close).
+- `resources/views/auth/layout.blade.php` — same token renaming for consistency (`--color-primary`, `--color-accent`, `--color-text-on-accent`, etc.) and `.btn-primary` text → white, matching the app shell.
+- `resources/views/components/icon.blade.php` — added `chevron-down` (user-menu trigger).
+- `resources/views/dashboard/index.blade.php` — removed the "Профиль" card; only "История заходов" remains.
+- `app/Modules/Dashboard/Controllers/DashboardController.php` — no longer passes `user` to the view (nothing in the template used it once the profile card was removed).
+- `tests/Feature/DashboardTest.php` — the "user sees their own info" test no longer asserts the email is visible on `/dashboard` (that content moved to `/profile`); still asserts the name is visible, now via the topbar.
+
+Created files:
+- `app/Modules/Profile/Controllers/ProfileController.php` — `show()`, no `Service` (nothing beyond handing the already-authenticated user to the view — no business logic to justify one, per the architecture's "no abstractions we don't need" rule).
+- `app/Modules/Profile/routes.php` — `GET /profile` (`auth` middleware only, named `profile.show`) — deliberately **not** gated by `users.view`: viewing your own data must not depend on holding the `users.*` permission, otherwise a plain `user`/`manager`-role account with no such permission could never open "Просмотр" at all.
+- `resources/views/profile/show.blade.php` — the same fields the removed Dashboard card had (name, email, roles, last login), in a `.card`.
+- `tests/Feature/ProfileTest.php` — 2 tests: guest redirected to login; any authenticated user (regardless of permissions) can view their own profile.
+- `docs/BACKLOG.md` — new file for not-yet-scoped, forward-looking notes (distinct from `DECISIONS.md`/`PHASE-1-SPEC.md`). First entry: a future API module for Products/Orders/Users CRUD, with pointers to the relevant `ARCHITECTURE.md`/`DECISIONS.md` constraints for whoever scopes it later.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- Live HTTP check against the running stack, logged in as `genodessa@gmail.com`: `/dashboard` HTML contains the `#242424`/`#f8b02c` token values, the `user-menu-dropdown` markup, and "История заходов" (no "Профиль"); the dropdown's "Просмотр" link resolves to `/profile`; `/profile` (`200`) shows the name and email.
+
+Tests:
+- `php artisan test` — 63/63 passed (2 new `ProfileTest` cases; `DashboardTest` adjusted, not net-new).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+1. The project owner reported the sidebar collapse button was invisible but still clickable. Root cause: `.sidebar-link .icon { width: 20px; height: 20px; }` was scoped only to nav links — the toggle button (`.sidebar-toggle`) had no matching selector, so its `<svg>` rendered at the browser's default replaced-element size instead of a sensible icon size. Fixed with a global `svg.icon` base rule so every icon gets a sane default regardless of its container, with more specific selectors (`.btn .icon`, `.icon-btn .icon`) only overriding size where they actually need to differ.
+
+Status:
+DONE
+
+Next step:
+Per the project owner: move on to the Customers module (Phase 2 scope). Not yet spec'd — awaiting requirements (fields, permissions, relation to Orders) before planning a step, per the usual workflow.

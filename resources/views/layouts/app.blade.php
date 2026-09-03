@@ -5,61 +5,84 @@
     <title>@yield('title', 'CRM')</title>
     <style>
         :root {
-            --bg-page: #F7F0E3;
-            --bg-input: #F4F6FA;
-            --color-brand: #00a1df;
+            /* Design tokens — change the look of the whole app from here. */
+            --color-bg-page: #F7F0E3;
+            --color-bg-input: #F4F6FA;
+            --color-primary: #00a1df;
             --color-accent: #f7a001;
+            --color-accent-hover: #f8b02c;
+            --color-text-on-accent: #ffffff;
+            --color-danger: #dc2626;
+            --color-success: #15803d;
+            --color-sidebar-bg: #242424;
+            --color-sidebar-text: #ffffff;
+            --color-card-border: #ece3d0;
+
             --sidebar-width: 300px;
             --sidebar-width-collapsed: 76px;
         }
         * { box-sizing: border-box; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg-page); }
+        body { font-family: sans-serif; margin: 0; background: var(--color-bg-page); }
+        svg.icon { width: 20px; height: 20px; flex-shrink: 0; }
 
         .app-shell { display: flex; min-height: 100vh; }
 
         .sidebar {
-            width: var(--sidebar-width); flex-shrink: 0; background: #fff; border-right: 1px solid #ece3d0;
+            width: var(--sidebar-width); flex-shrink: 0; background: var(--color-sidebar-bg);
             display: flex; flex-direction: column; transition: width .15s ease;
         }
         .sidebar.collapsed { width: var(--sidebar-width-collapsed); }
 
         .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem; }
         .sidebar.collapsed .sidebar-top { justify-content: center; padding: 1.25rem .5rem; }
-        .sidebar-logo { font-weight: 700; color: var(--color-brand); font-size: 1.15rem; white-space: nowrap; overflow: hidden; }
+        .sidebar-logo { font-weight: 700; color: var(--color-primary); font-size: 1.15rem; white-space: nowrap; overflow: hidden; }
         .sidebar.collapsed .sidebar-logo { display: none; }
-        .sidebar-toggle { background: none; border: none; cursor: pointer; padding: .35rem; color: #666; border-radius: 6px; }
-        .sidebar-toggle:hover { background: var(--bg-input); }
+        .sidebar-toggle { background: none; border: none; cursor: pointer; padding: .35rem; color: var(--color-sidebar-text); border-radius: 6px; display: inline-flex; }
+        .sidebar-toggle:hover { color: var(--color-accent-hover); }
 
         .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: .2rem; padding: .5rem; }
         .sidebar-link {
             display: flex; align-items: center; gap: .8rem; padding: .65rem .9rem; border-radius: 8px;
-            text-decoration: none; color: #333; font-size: .9rem; border: none; background: none;
+            text-decoration: none; color: var(--color-sidebar-text); font-size: .9rem; border: none; background: none;
             width: 100%; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden;
         }
-        .sidebar-link:hover { background: var(--bg-input); }
-        .sidebar-link.active { background: var(--bg-input); color: var(--color-brand); font-weight: 600; }
+        .sidebar-link:hover { color: var(--color-accent-hover); }
+        .sidebar-link.active { color: var(--color-accent-hover); font-weight: 600; }
         .sidebar.collapsed .sidebar-link { justify-content: center; padding: .65rem; }
         .sidebar.collapsed .sidebar-link .label { display: none; }
-        .sidebar-link .icon { width: 20px; height: 20px; flex-shrink: 0; }
-
-        .sidebar-logout { padding: .5rem; border-top: 1px solid #ece3d0; }
 
         .content { flex: 1; padding: 2rem; min-width: 0; }
         .content-inner { max-width: 1000px; margin: 0 auto; }
 
-        .card { background: #fff; border-radius: 12px; border: 1px solid #ece3d0; padding: 1.5rem; }
+        .topbar { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+        .user-menu { position: relative; }
+        .user-menu-trigger {
+            display: inline-flex; align-items: center; gap: .4rem; background: #fff; border: 1px solid var(--color-card-border);
+            border-radius: 8px; padding: .5rem .9rem; font-size: .9rem; cursor: pointer; color: #333;
+        }
+        .user-menu-dropdown {
+            position: absolute; right: 0; top: calc(100% + .4rem); background: #fff; border: 1px solid var(--color-card-border);
+            border-radius: 8px; min-width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; z-index: 10;
+        }
+        .user-menu-dropdown a, .user-menu-dropdown button {
+            display: block; width: 100%; text-align: left; padding: .6rem .9rem; font-size: .9rem; color: #333;
+            text-decoration: none; background: none; border: none; cursor: pointer;
+        }
+        .user-menu-dropdown a:hover, .user-menu-dropdown button:hover { background: var(--color-bg-input); }
+
+        .card { background: #fff; border-radius: 12px; border: 1px solid var(--color-card-border); padding: 1.5rem; }
         .card + .card { margin-top: 1.5rem; }
 
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid #f0ece0; font-size: .9rem; }
         tbody tr:last-child td { border-bottom: none; }
-        .status { color: #15803d; font-size: .875rem; margin-bottom: 1rem; }
-        .errors { color: #b91c1c; font-size: .875rem; margin-bottom: 1rem; }
-        .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--color-accent); color: #000; text-decoration: none; border-radius: 8px; font-size: .85rem; border: none; cursor: pointer; font-weight: 600; }
+        .status { color: var(--color-success); font-size: .875rem; margin-bottom: 1rem; }
+        .errors { color: var(--color-danger); font-size: .875rem; margin-bottom: 1rem; }
+        .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--color-accent); color: var(--color-text-on-accent); text-decoration: none; border-radius: 8px; font-size: .85rem; border: none; cursor: pointer; font-weight: 600; }
         .btn .icon { width: 16px; height: 16px; }
-        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-danger { background: var(--color-danger); color: var(--color-text-on-accent); }
         label { display: block; margin-top: 1rem; font-size: .875rem; }
-        input[type=text], input[type=email], input[type=password], textarea, select { width: 100%; padding: .55rem .7rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: none; background: var(--bg-input); font-size: .9rem; }
+        input[type=text], input[type=email], input[type=password], textarea, select { width: 100%; padding: .55rem .7rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: none; background: var(--color-bg-input); font-size: .9rem; }
         .permissions { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
         h1 { font-size: 1.25rem; margin-top: 0; }
 
@@ -69,9 +92,9 @@
             border-radius: 6px; border: none; background: none; color: #666; cursor: pointer; text-decoration: none; padding: 0;
         }
         .icon-btn .icon { width: 17px; height: 17px; }
-        .icon-btn:hover { background: var(--bg-input); color: #333; }
-        .icon-btn.danger:hover { background: #fde8e8; color: #dc2626; }
-        .icon-btn.success:hover { background: #e6f6ec; color: #15803d; }
+        .icon-btn:hover { background: var(--color-bg-input); color: #333; }
+        .icon-btn.danger:hover { background: #fde8e8; color: var(--color-danger); }
+        .icon-btn.success:hover { background: #e6f6ec; color: var(--color-success); }
     </style>
 </head>
 <body>
@@ -80,7 +103,7 @@
             <div class="sidebar-top">
                 <span class="sidebar-logo">GenCrm</span>
                 <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Свернуть меню">
-                    <x-icon name="chevron-left" class="icon" />
+                    <x-icon name="chevron-left" />
                 </button>
             </div>
 
@@ -102,20 +125,26 @@
                     </a>
                 @endcan
             </nav>
-
-            <div class="sidebar-logout">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="sidebar-link">
-                        <x-icon name="logout" />
-                        <span class="label">Выйти ({{ auth()->user()->name }})</span>
-                    </button>
-                </form>
-            </div>
         </aside>
 
         <main class="content">
             <div class="content-inner">
+                <div class="topbar">
+                    <div class="user-menu" id="user-menu">
+                        <button type="button" class="user-menu-trigger" id="user-menu-trigger">
+                            {{ auth()->user()->name }}
+                            <x-icon name="chevron-down" style="width:14px;height:14px;" />
+                        </button>
+                        <div class="user-menu-dropdown" id="user-menu-dropdown" hidden>
+                            <a href="{{ route('profile.show') }}">Просмотр</a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit">Выход</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
                 @if (session('status'))
                     <div class="status">{{ session('status') }}</div>
                 @endif
@@ -150,6 +179,29 @@
                 try {
                     localStorage.setItem(KEY, sidebar.classList.contains('collapsed') ? '1' : '0');
                 } catch (e) {}
+            });
+        })();
+
+        (function () {
+            var menu = document.getElementById('user-menu');
+            var trigger = document.getElementById('user-menu-trigger');
+            var dropdown = document.getElementById('user-menu-dropdown');
+
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                dropdown.hidden = !dropdown.hidden;
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!dropdown.hidden && !menu.contains(e.target)) {
+                    dropdown.hidden = true;
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    dropdown.hidden = true;
+                }
             });
         })();
     </script>
