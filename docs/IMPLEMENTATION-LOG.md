@@ -662,3 +662,17 @@ DONE
 
 Next step:
 Awaiting the project owner's next direction. Candidates: continue Phase 2 with Products or Orders (Orders would let the Customer aggregate fields/reliability actually start populating), or the Sources/Integrations module now noted in `docs/BACKLOG.md`.
+
+---
+
+## Session paused after Step 12
+
+Date: 2026-09-03
+
+Work paused here for the night at the project owner's request. State to resume from:
+
+- Steps 1-12 all DONE, committed on `main` up to `4c4fab9`, pushed to `https://github.com/gen2023/crm.git`.
+- Phase 1 (Foundation/Auth/Users/Roles/Permissions/Audit Log/Dashboard/Error Pages/Seeders) is functionally complete. Phase 2 has one module so far: Customers (Step 12).
+- Stack: `docker-compose up -d` in `crm/`, app at `https://localhost`. Login: `genodessa@gmail.com` / `Genodessa2026!` (now reproducible via `AdminUserSeeder`, no longer only a manual `tinker` row).
+- Not yet started: Products, Orders, Sources/Integrations (see `docs/BACKLOG.md` for the Sources module and the future API-module note).
+- No open questions blocking the next step — see "Next step" just above for the menu of what could come next; nothing has been decided yet.
