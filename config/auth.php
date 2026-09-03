@@ -114,4 +114,22 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Brute-force Protection
+    |--------------------------------------------------------------------------
+    |
+    | Rate limits applied to authentication-related endpoints (login, and
+    | later password reset). Kept in configuration rather than hardcoded
+    | so limits can be tuned per environment without a code change.
+    |
+    */
+
+    'throttle' => [
+        'login' => [
+            'max_attempts' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS', 5),
+            'decay_minutes' => (int) env('AUTH_LOGIN_DECAY_MINUTES', 1),
+        ],
+    ],
+
 ];

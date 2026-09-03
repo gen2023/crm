@@ -94,3 +94,58 @@ DONE
 
 Next step:
 Awaiting explicit confirmation from the project owner before starting. Proposed: Step 2 — Authentication (thin `AuthController` + `AuthService` over Laravel's native `Auth`/`Password` facades: login, logout, session regeneration, `last_login_at`), per `PHASE-1-SPEC.md`.
+
+---
+
+## Step 2 — Authentication (login, logout)
+
+Date: 2026-09-03
+
+Goal:
+Implement login/logout per `PHASE-1-SPEC.md`'s Authentication section: `/login` (email, password, remember_me), `/logout`, generic failure message, session regeneration on login, `last_login_at` recording, status-gated login, CSRF, rate limiting. No Users/Roles/Permissions/Password-Reset/Audit/full-Dashboard work.
+
+Changed files:
+- `app/Models/User.php` — added `last_login_at` cast (`datetime`) and an `isActive(): bool` helper.
+- `config/auth.php` — added a `throttle.login` config block (`max_attempts`/`decay_minutes`, sourced from `AUTH_LOGIN_MAX_ATTEMPTS`/`AUTH_LOGIN_DECAY_MINUTES` env vars) so brute-force limits are configuration, not hardcoded.
+- `app/Providers/AppServiceProvider.php` — registered the `login` named rate limiter (`RateLimiter::for('login', ...)`), keyed by `email|ip`, using the config values above.
+- `routes/web.php` — added the `app/Modules/*/routes.php` auto-discovery loop (first real use of the module routing convention from `ARCHITECTURE.md`); added a minimal placeholder `GET /dashboard` (named `dashboard`, `auth`-protected) as the post-login landing page and as the route used to prove/test the `auth` middleware — explicitly not the real Dashboard module.
+- `.env`, `.env.example` — added `SESSION_SECURE_COOKIE=true` (app is HTTPS-only per the existing vhost), `AUTH_LOGIN_MAX_ATTEMPTS=5`, `AUTH_LOGIN_DECAY_MINUTES=1`.
+
+Created files:
+- `database/migrations/2026_09_03_120000_add_status_and_last_login_at_to_users_table.php` — adds `status` (string, default `active`) and `last_login_at` (nullable timestamp) to `users`.
+- `app/Modules/Auth/Requests/LoginRequest.php` — validates `email`, `password`, optional `remember_me`.
+- `app/Modules/Auth/Services/AuthService.php` — `attempt()` (Auth::attempt + status check + session regenerate + `last_login_at` update, single generic `ValidationException` on any failure) and `logout()` (guard logout + session invalidate + token regenerate).
+- `app/Modules/Auth/Controllers/AuthController.php` — thin: `create()` (show form), `store()` (validate via `LoginRequest`, delegate to `AuthService`, redirect), `destroy()` (delegate to `AuthService`, redirect).
+- `app/Modules/Auth/routes.php` — `GET/POST /login` (behind `guest` middleware, `POST` additionally behind `throttle:login`), `POST /logout` (behind `auth`).
+- `resources/views/auth/login.blade.php` — minimal unstyled login form (email/password/remember_me, validation errors, `@csrf`).
+- `resources/views/dashboard.blade.php` — minimal placeholder page (welcome message, email, last login, logout button).
+- `tests/Feature/Auth/LoginTest.php` — 6 tests: successful login, wrong password, non-existent email, identical error message for both failure cases, inactive user blocked, guest redirected from a protected route.
+- `tests/Feature/Auth/LogoutTest.php` — 3 tests: authenticated logout, guest cannot reach `/logout`, dashboard unreachable after logout.
+
+Deleted files:
+None.
+
+Dependencies:
+None added — everything built on Laravel's native `Auth`, `Password`-adjacent session handling, `RateLimiter`, and validation, per the approved architecture (no Breeze/Fortify/etc.).
+
+Checks:
+- `php artisan migrate --force` — new migration applied to MySQL (`status`, `last_login_at` columns added).
+- `php artisan route:list` — confirms `login` (GET/POST), `logout` (POST), `dashboard` (GET) all registered via the module auto-discovery loop.
+- Live HTTP smoke test against the running Apache/MySQL stack (`curl` with a cookie jar, real CSRF token fetched from the form): wrong password → back to `/login` with an error; correct password → `302` to `/dashboard`; dashboard renders the welcome message; a fresh client with no cookies is redirected from `/dashboard` to `/login`; `POST /logout` → `302` to `/login`, dashboard unreachable afterward.
+- Rate limiting: 6 rapid wrong-password attempts from the same client → attempts 1-5 return `302` (normal failed-login redirect), attempt 6 returns `429`, matching `AUTH_LOGIN_MAX_ATTEMPTS=5`.
+- CSRF: `POST /login` without a token → `419`.
+
+Tests:
+- `php artisan test` — 11/11 passed (9 new Auth tests + the 2 pre-existing skeleton tests), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes this step; ran against the already-running `crm-app-1`/`crm-db-1` from Step 1.
+
+Problems and resolution:
+1. First draft of the "error message doesn't reveal which field was wrong" test read the session errors bag incorrectly (`Call to a member function get() on array`) — rewritten to use `assertSessionHasErrors(['email' => $message])` for both the wrong-password and non-existent-email cases instead of manually inspecting the session.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation from the project owner before starting. Proposed: Step 3 — Password reset (`/forgot-password`, `/reset-password`, thin `PasswordResetService` wrapping Laravel's native `Password` broker), per `PHASE-1-SPEC.md`.
