@@ -2,6 +2,7 @@
 
 namespace App\Modules\Auth\Services;
 
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthService
 {
+    public function __construct(private readonly AuditLogger $auditLogger)
+    {
+    }
+
     /**
      * Attempt to authenticate the given credentials for the current request.
      *
@@ -45,7 +50,12 @@ class AuthService
 
         $request->session()->regenerate();
 
-        Auth::user()->forceFill(['last_login_at' => now()])->save();
+        $user = Auth::user();
+        $user->forceFill(['last_login_at' => now()])->save();
+
+        // Powers the Dashboard's "recent logins" card — reuses the existing
+        // audit trail rather than a dedicated login-history table.
+        $this->auditLogger->log('auth.login', $user);
     }
 
     public function logout(Request $request): void

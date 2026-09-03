@@ -498,3 +498,54 @@ DONE
 
 Next step:
 Step 10 — real Dashboard module (recent-logins card sourced from `audit_logs`, replacing the Step 2 placeholder route/view) and `AdminUserSeeder`, per the agreed 8/9/10 sequence and the detailed spec already shared with the project owner.
+
+---
+
+## Step 10 — Dashboard module + AdminUserSeeder
+
+Date: 2026-09-03
+
+Goal:
+Replace the Step 2 placeholder `/dashboard` closure with a real `app/Modules/Dashboard` module (welcome card + a "recent logins" card, up to 5, who+date, per the design brief) and add `AdminUserSeeder` so the working admin account is reproducible via `db:seed` instead of only existing as an ad-hoc `tinker`-created row. Last two items of Phase 1's remaining scope, per the plan shared with the project owner.
+
+Changed files:
+- `app/Modules/Auth/Services/AuthService.php` — on successful login, now also calls `AuditLogger::log('auth.login', $user)` (actor and subject are the same user). This is the data source for the dashboard's login-history card — reuses the existing `audit_logs` table/architecture rather than adding a dedicated login-history table.
+- `routes/web.php` — removed the placeholder `GET /dashboard` closure (moved into the new module's `routes.php`, picked up by the same auto-discovery loop as every other module).
+- `database/seeders/DatabaseSeeder.php` — now also calls `AdminUserSeeder` (after `RolePermissionSeeder`, so the `admin` role exists to assign).
+- `.env`, `.env.example` — added `ADMIN_NAME`/`ADMIN_EMAIL`/`ADMIN_PASSWORD`. Local `.env` (not committed) carries the real values already in use (`genodessa@gmail.com` / the existing password), so seeding is a no-op reconciliation of the account that already existed from earlier manual `tinker` steps. `.env.example` carries generic placeholders with a comment not to use them as-is.
+
+Created files:
+- `app/Modules/Dashboard/Services/DashboardService.php` — `recentLogins(int $limit = 5)`: `AuditLog::where('action', 'auth.login')->with('actor')->latest('id')->limit($limit)->get()`. Ordered by `id` rather than `created_at` deliberately — an append-only table's row id is already a strict, collision-free recency order, whereas same-second timestamps (easily hit in fast test runs, and possible in real traffic bursts) would make `created_at` ordering ambiguous.
+- `app/Modules/Dashboard/Controllers/DashboardController.php` — thin: `index()` hands the current user and `DashboardService::recentLogins()` to the view.
+- `app/Modules/Dashboard/routes.php` — `GET /dashboard` (`auth` middleware, named `dashboard`, unchanged from before).
+- `resources/views/dashboard/index.blade.php` — two cards per the design brief: "История заходов" (table, who + date, up to 5) listed first, then a "Профиль" card (name/email/roles/last login — the original Phase 1 spec's welcome-message content). Replaces `resources/views/dashboard.blade.php` (deleted).
+- `database/seeders/AdminUserSeeder.php` — `User::updateOrCreate(['email' => env('ADMIN_EMAIL', ...)], ['name' => ..., 'password' => ..., 'status' => 'active'])` + `assignRole('admin')`. Guarded by `app()->environment('local')` — skips (with a console warning) everywhere else, so a routine `db:seed` in a shared/production environment can never silently produce an admin account with a default/guessable password; provisioning a production admin stays a deliberate, separate action.
+- `tests/Feature/DashboardTest.php` — 3 tests: guest redirected, an authenticated user sees their own name/email, and the recent-logins card shows only the 5 most recent of 6 real logins performed through the actual `/login` endpoint (the oldest is confirmed absent).
+- `tests/Feature/AdminUserSeederTest.php` — 2 tests: with the environment forced to `local` (`$this->app->detectEnvironment(fn () => 'local')`) and `ADMIN_*` env vars overridden, the seeder creates the expected user with the `admin` role; with the default `testing` environment, the seeder is a no-op (`assertDatabaseCount('users', 0)`).
+- `tests/Feature/Auth/LoginTest.php` — added an `assertDatabaseHas('audit_logs', ['action' => 'auth.login', ...])` assertion to the existing successful-login test, covering the new `AuthService` behavior.
+
+Deleted files:
+- `resources/views/dashboard.blade.php` — superseded by `resources/views/dashboard/index.blade.php`.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan route:list` — `dashboard` now resolves to `App\Modules\Dashboard\Controllers\DashboardController@index` instead of a closure.
+- `php artisan db:seed --force` against MySQL — `AdminUserSeeder` ran (APP_ENV=local) and left `genodessa@gmail.com` unchanged (`status=active`, role `admin`) — confirmed idempotent via `tinker`.
+- Live HTTP check against the running stack: logged in as `genodessa@gmail.com`, `/dashboard` (`200`) contains "История заходов" and the user's own name/email.
+
+Tests:
+- `php artisan test` — 61/61 passed (5 new: 3 Dashboard + 2 AdminUserSeeder, plus 1 assertion added to an existing Login test), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+1. `AdminUserSeederTest`'s "creates an admin" case initially failed (`assertNotNull` on a `null` user) even after correctly forcing the environment to `local` via `detectEnvironment()`. Root cause: Laravel's `env()` helper does not re-read `putenv()` changes made after the application has already booted — it was still returning the real `.env` file's `ADMIN_EMAIL` value rather than the test's override. A raw debug script confirmed `getenv()` reflected the override immediately while `env()` did not, and that additionally setting `$_ENV`/`$_SERVER` alongside `putenv()` made `env()` pick it up too. Fixed by setting all three for each overridden variable (and unsetting all three in a `finally` block).
+
+Status:
+DONE
+
+Next step:
+Phase 1 scope per `PHASE-1-SPEC.md` is now functionally complete (Foundation, Docker, Authentication, Password Reset, Users, Roles, Permissions, User Status, Audit Log, Dashboard, Validation, Error Handling, base UI, Security, Testing, Seeders all implemented and tested). Remaining before formally closing Phase 1: a pass against the full Definition of Done checklist in `PHASE-1-SPEC.md`, and a decision from the project owner on whether any further UI polish is wanted before moving to Phase 2 scope (Customers/Products/Orders/...).

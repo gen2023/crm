@@ -47,6 +47,13 @@ class LoginTest extends TestCase
         $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($user);
         $this->assertNotNull($user->fresh()->last_login_at);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'auth.login',
+            'subject_type' => User::class,
+            'subject_id' => $user->id,
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_login_fails_with_wrong_password(): void
