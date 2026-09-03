@@ -370,3 +370,48 @@ DONE
 
 Next step:
 Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: a real Dashboard, custom error pages (403/404/422/500), and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account) — project owner has indicated visual/UI work (including these) will resume later.
+
+---
+
+## Step 7 — Custom error pages
+
+Date: 2026-09-03
+
+Goal:
+Custom Blade views for 400/401/403/404/419/422/500 per `PHASE-1-SPEC.md`'s Error Handling section, so `APP_DEBUG=false` never exposes stack traces or internals — kept deliberately plain (project owner: visual/UI polish happens in a later, separate pass).
+
+Changed files:
+None — this step only adds views/tests.
+
+Created files:
+- `resources/views/errors/layout.blade.php` — shared minimal shell (`@yield('code')`, `@yield('message')`, a link home) so the 7 status pages don't each duplicate the full HTML document; matches the same `@extends`/`@yield` pattern already used for `layouts.app`.
+- `resources/views/errors/{400,401,403,404,419,422,500}.blade.php` — one line of content each, extending the shared layout. Laravel automatically resolves `resources/views/errors/{status}.blade.php` for any HTTP exception with that status when `APP_DEBUG=false`; nothing else needed to be wired up.
+- `tests/Feature/ErrorPagesTest.php` — a data-provider test rendering all 7 views directly (catches template/typo errors independent of triggering each real HTTP status), plus two real-request tests: an unknown route returns `404` with the custom page, and a permission-less user hitting `/roles` returns `403` with the custom page — both asserted with `config(['app.debug' => false])` so the assertions would fail if Laravel's debug page (Ignition) showed instead.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Design notes (not architecturally significant):
+- `401` and `422` are effectively unreachable through this app's current web flow and are included for spec completeness / future-proofing rather than because they fire today: unauthenticated access to a protected route redirects to `/login` (`302`) rather than rendering a 401 page (Laravel's `Authenticate` middleware only throws a renderable `AuthenticationException` for requests that expect JSON, which we have none of yet); validation failures on a normal web `POST` are caught by Laravel's default handling and redirected back with flashed errors (`302`) rather than rendering the 422 view. Both views are ready for when an API surface exists later.
+- `419` (CSRF) and `403`/`404`/`400`/`500` are real, reachable outcomes today and were verified live.
+
+Checks:
+- `php artisan test` (see Tests below) plus a live check against the running Apache/MySQL stack with `APP_DEBUG` temporarily flipped to `false` (and back to `true` afterward — local dev keeps debug on): unknown route → `404`, custom page; `POST /login` with no CSRF token → `419`, custom page; a plain user hitting `/roles` → `403`, custom page. No Ignition/debug output in any of the three.
+
+Tests:
+- `php artisan test` — 56/56 passed (9 new: 7 view-render checks + 404 + 403 real-request checks), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes this step; ran against the already-running stack.
+
+Problems and resolution:
+1. The data-provider test initially used the legacy `@dataProvider` docblock annotation, which failed with `ArgumentCountError` (0 arguments passed) — this project's PHPUnit version (^12.5) requires the `#[PHPUnit\Framework\Attributes\DataProvider('method')]` attribute instead of the old annotation. Fixed by switching to the attribute form.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: a real Dashboard and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account) — both flagged by the project owner as visual/UI-adjacent work to resume later.
