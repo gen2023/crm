@@ -415,3 +415,44 @@ DONE
 
 Next step:
 Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: a real Dashboard and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account) — both flagged by the project owner as visual/UI-adjacent work to resume later.
+
+---
+
+## Step 8 — Design tokens + Layout shell (sidebar, login)
+
+Date: 2026-09-03
+
+Goal:
+Apply the project owner's visual design brief: color tokens, a collapsible 300px sidebar (icons-only when collapsed, state persisted client-side) replacing the old top nav bar, and a redesigned auth flow (login/forgot-password/reset-password). First of a 3-part visual pass (Steps 8/9/10); Users/Roles content and the real Dashboard are deliberately untouched here.
+
+Changed files:
+- `resources/views/layouts/app.blade.php` — replaced the top `<nav>` bar with a `.app-shell` = `.sidebar` (300px, `.collapsed` state → 76px, icon-only) + `.content`. Sidebar: logo + collapse toggle at top, nav links (Dashboard/Users/Roles, still `@can`-gated, now with an `active` state via `request()->routeIs()`) with icons, logout as a sidebar item at the bottom. Introduced CSS custom properties (`--bg-page: #F7F0E3`, `--bg-input: #F4F6FA`, `--color-brand: #00a1df`, `--color-accent: #f7a001`) and a `.card` class for Step 9/10 to build on. All pre-existing selectors Users/Roles pages depend on (`.btn`, `.btn-danger`, `table/th/td`, `.status`, `.errors`, `.permissions`, form inputs) were kept as-is so those pages keep rendering correctly until Step 9 restyles them. A small inline `<script>` toggles `.collapsed` and persists the choice to `localStorage` (wrapped in `try/catch` — private-browsing/storage-blocked contexts degrade to "always expanded" rather than throwing).
+- `resources/views/auth/{login,forgot-password,reset-password}.blade.php` — rewritten to `@extends('auth.layout')`, using the new shared shell instead of each duplicating its own `<html>`/`<style>`.
+
+Created files:
+- `resources/views/components/icon.blade.php` — a single anonymous Blade component (`<x-icon name="..."/>`) with a small hand-written inline-SVG lookup table (`dashboard`, `users`, `roles`, `chevron-left`, `chevron-right`, `logout`, `eye`, `pencil`, `trash`, `plus`). No icon library dependency; `eye`/`pencil`/`trash`/`plus`/`chevron-right` are defined now but only get used starting Step 9 — defining the whole small vocabulary once avoids touching this file again for a few icons.
+- `resources/views/auth/layout.blade.php` — shared shell for the three unauthenticated pages: top-left "GenCrm" logo (`--color-brand`), centered white rounded card (`border-radius: 12px`, bordered) on the `--bg-page` background, inputs styled per the brief (rounded, `--bg-input`, no border), `.btn-primary` (`--color-accent` background, black text).
+
+Deleted files:
+None.
+
+Dependencies:
+None added — no icon library, no CSS framework, no build step; plain CSS custom properties and inline SVG, consistent with the earlier decision to skip Vite/Node for this admin UI.
+
+Checks:
+- `php artisan view:clear` + live check against the running stack: `/login` HTML contains the `F7F0E3`/`F4F6FA`/`f7a001` color values and the "GenCrm" logo text; after logging in, `/dashboard` HTML contains the sidebar markup and all three nav labels (Dashboard/Users/Roles).
+
+Tests:
+- `php artisan test` — 56/56 still passing (no test asserted on the old nav markup, so no test changes were needed; this step was purely visual/structural).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None.
+
+Status:
+DONE
+
+Next step:
+Step 9 — apply the same design system to Users/Roles (icon actions instead of text links, white bordered cards for create/edit/view), per the agreed 8/9/10 sequence.
