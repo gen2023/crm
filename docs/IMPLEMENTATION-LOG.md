@@ -149,3 +149,18 @@ DONE
 
 Next step:
 Awaiting explicit confirmation from the project owner before starting. Proposed: Step 3 — Password reset (`/forgot-password`, `/reset-password`, thin `PasswordResetService` wrapping Laravel's native `Password` broker), per `PHASE-1-SPEC.md`.
+
+---
+
+## Session paused after Step 2
+
+Date: 2026-09-03
+
+Work paused here at the project owner's request (switching to other work). State to resume from:
+
+- Steps 1 (Laravel skeleton + Docker) and 2 (Authentication: login/logout) are DONE, committed on `main` (commits `b8c7dce`, `6e322cd`), pushed to `https://github.com/gen2023/crm.git`.
+- Stack is up and working: `docker-compose up -d` in `crm/`, app at `https://localhost`.
+- One manually-created, **unseeded, uncommitted** dev user exists directly in the local MySQL `cmsdb` database for manual login testing: `admin@local.test` / `Password123!`. This is not a Seeder and will be superseded by the real `AdminUserSeeder` in the Seeders step — don't confuse it with seeded data when that step lands.
+- Not yet implemented: Password reset, Users CRUD, Roles/Permissions (spatie/laravel-permission not installed yet), Audit Log, real Dashboard module, UI layout, Seeders.
+- Next proposed step (unconfirmed): Step 3 — Password reset.
+- Governance: continue one small confirmed step at a time; keep `docs/ARCHITECTURE.md`/`DECISIONS.md`/`IMPLEMENTATION-LOG.md` current; see those files plus `docs/PHASE-1-SPEC.md` for full approved scope and decisions before resuming.
