@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthService
@@ -31,6 +32,12 @@ class AuthService
         }
 
         if (! $authenticated) {
+            // Never log the submitted password — only enough to spot brute-force patterns.
+            Log::warning('auth.login_failed', [
+                'email' => $credentials['email'],
+                'ip' => $request->ip(),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => __('Неверный email или пароль.'),
             ]);

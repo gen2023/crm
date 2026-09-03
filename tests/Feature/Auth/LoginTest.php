@@ -4,11 +4,34 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class LoginTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_failed_login_is_logged_without_the_password(): void
+    {
+        Log::spy();
+
+        $user = User::factory()->create([
+            'password' => bcrypt('correct-password'),
+        ]);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($user) {
+                return $message === 'auth.login_failed'
+                    && $context['email'] === $user->email
+                    && ! isset($context['password']);
+            });
+    }
 
     public function test_user_can_login_with_correct_credentials(): void
     {

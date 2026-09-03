@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Services;
 
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Auth\CanResetPassword;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -17,6 +18,8 @@ class PasswordResetService
     public function sendResetLink(string $email): void
     {
         Password::sendResetLink(['email' => $email]);
+
+        Log::info('auth.password_reset_requested', ['email' => $email]);
     }
 
     /**
@@ -34,9 +37,18 @@ class PasswordResetService
         );
 
         if ($status !== Password::PASSWORD_RESET) {
+            // $status is one of Laravel's own status keys (e.g. "passwords.token"),
+            // never the token or password itself.
+            Log::warning('auth.password_reset_failed', [
+                'email' => $data['email'],
+                'status' => $status,
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => [__('Ссылка для сброса пароля недействительна или устарела.')],
             ]);
         }
+
+        Log::info('auth.password_reset_completed', ['email' => $data['email']]);
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -25,6 +26,21 @@ class PasswordResetTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('status');
         Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+    public function test_reset_link_request_is_logged(): void
+    {
+        Notification::fake();
+        Log::spy();
+
+        $user = User::factory()->create();
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        Log::shouldHaveReceived('info')
+            ->once()
+            ->withArgs(fn (string $message, array $context) => $message === 'auth.password_reset_requested'
+                && $context['email'] === $user->email);
     }
 
     public function test_reset_link_request_gives_the_same_response_for_an_unknown_email(): void
@@ -93,6 +109,8 @@ class PasswordResetTest extends TestCase
             ->where('email', $user->email)
             ->update(['created_at' => now()->subMinutes(61)]);
 
+        Log::spy();
+
         $response = $this->post('/reset-password', [
             'token' => $token,
             'email' => $user->email,
@@ -102,6 +120,14 @@ class PasswordResetTest extends TestCase
 
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($user) {
+                return $message === 'auth.password_reset_failed'
+                    && $context['email'] === $user->email
+                    && ! isset($context['token']);
+            });
     }
 
     public function test_token_cannot_be_reused(): void

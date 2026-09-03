@@ -3,6 +3,7 @@
 namespace App\Modules\Users\Services;
 
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
@@ -10,6 +11,10 @@ use Spatie\Permission\Models\Role;
 
 class UserService
 {
+    public function __construct(private readonly AuditLogger $auditLogger)
+    {
+    }
+
     public function paginate(): LengthAwarePaginator
     {
         return User::with('roles')->orderBy('name')->paginate(20);
@@ -33,6 +38,11 @@ class UserService
         ]);
 
         $user->syncRoles($data['roles'] ?? []);
+
+        $this->auditLogger->log('user.created', $user, [
+            'status' => $user->status,
+            'roles' => $user->getRoleNames()->all(),
+        ]);
 
         return $user;
     }
@@ -61,7 +71,19 @@ class UserService
         }
 
         $user->save();
+
+        // Never audit the password itself — only that it changed, if it did.
+        $changes = collect($user->getChanges())->except(['password', 'updated_at'])->all();
+        $passwordChanged = $user->wasChanged('password');
+
+        $previousRoles = $user->getRoleNames()->all();
         $user->syncRoles($newRoles);
+
+        $this->auditLogger->log('user.updated', $user, [
+            'changes' => $changes,
+            'password_changed' => $passwordChanged,
+            'roles' => ['before' => $previousRoles, 'after' => $newRoles],
+        ]);
 
         return $user->fresh('roles');
     }
@@ -71,10 +93,14 @@ class UserService
         Gate::authorize('deactivate', $user);
 
         $user->update(['status' => 'inactive']);
+
+        $this->auditLogger->log('user.deactivated', $user);
     }
 
     public function activate(User $user): void
     {
         $user->update(['status' => 'active']);
+
+        $this->auditLogger->log('user.activated', $user);
     }
 }

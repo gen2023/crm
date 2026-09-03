@@ -321,3 +321,52 @@ DONE
 
 Next step:
 Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: Audit Log (wire the existing `AuditLogger`/`audit_logs` table into Users/Roles mutations), a real Dashboard (currently a placeholder from Step 2), custom error pages (403/404/422/500), and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account).
+
+---
+
+## Step 6 — Logging & Audit Log
+
+Date: 2026-09-03
+
+Goal:
+Implement the two logging requirements left open from `PHASE-1-SPEC.md`: file-based Logging (failed logins, password-reset requests/failures, authorization errors — never passwords/tokens) and the DB-backed Audit Log (`audit_logs` + `AuditLogger`, wired into every Users/Roles mutation), per `ARCHITECTURE.md`. Dashboard, custom error pages, and Seeders explicitly deferred to later steps (agreed with the project owner: "visual/UI work later").
+
+Changed files:
+- `app/Modules/Auth/Services/AuthService.php` — logs `auth.login_failed` (`Log::warning`, email + IP only) whenever `Auth::attempt()` fails or the account is inactive; never logs the submitted password.
+- `app/Modules/Auth/Services/PasswordResetService.php` — logs `auth.password_reset_requested` (info) on every `sendResetLink()` call regardless of outcome, `auth.password_reset_failed` (warning, email + Laravel's own status key) when `Password::reset()` doesn't return `PASSWORD_RESET`, and `auth.password_reset_completed` (info) on success. Never logs the token or the new password.
+- `bootstrap/app.php` — registers two `report()` closures logging `auth.unauthenticated_access` (401) and `auth.access_denied` (403), each with `path`/`ip`(/`user_id` for 403). Both `AuthenticationException` and `AuthorizationException` are in Laravel's internal "don't report" list by default (they're "expected" responses) — `$exceptions->stopIgnoring([...])` was required before the custom reporters would actually run; each closure returns `false` afterward to suppress Laravel's own default trace-dump log line so only the one clean structured warning is written.
+- `app/Modules/Users/Services/UserService.php` — injects `AuditLogger`; logs `user.created` (status, roles), `user.updated` (`getChanges()` with `password`/`updated_at` stripped, plus a `password_changed` boolean and a roles before/after diff — the changed password's hash is never included), `user.deactivated`, `user.activated`.
+- `app/Modules/Roles/Services/RoleService.php` — injects `AuditLogger`; logs `role.created`, `role.updated` (permissions before/after), `role.deleted` (logged *before* the row is removed, since `subject_id` needs the still-live model).
+
+Created files:
+- `database/migrations/2026_09_03_180000_create_audit_logs_table.php` — `audit_logs`: `user_id` (nullable, `nullOnDelete`), `action`, `subject_type`, `subject_id`, `properties` (JSON, nullable), `created_at` only (no `updated_at` — audit rows are append-only).
+- `app/Models/AuditLog.php` — `subject()` (`morphTo`), `actor()` (`belongsTo(User::class, 'user_id')`), `properties` cast to `array`, `const UPDATED_AT = null`.
+- `app/Support/AuditLogger.php` — the one infrastructure-level service outside the module tree (per `ARCHITECTURE.md`): `log(string $action, Model $subject, array $properties = [])`, actor taken from `Auth::id()`.
+- `tests/Feature/AuditLogTest.php` — 5 tests: user creation, user update (asserts the password is never present anywhere in the stored `properties`, including as a hash), user deactivation, role creation, and role deletion (asserts the audit row survives even though the role row is gone) all write the expected `audit_logs` entry.
+- `tests/Feature/Auth/AuthorizationLoggingTest.php` — 2 tests: an unauthenticated request logs `auth.unauthenticated_access`; a forbidden request logs `auth.access_denied`.
+- Extended existing files rather than new ones for the rest: `LoginTest::test_failed_login_is_logged_without_the_password`, `PasswordResetTest::test_reset_link_request_is_logged` and an assertion added to `test_reset_fails_with_an_expired_token` confirming `auth.password_reset_failed` is logged without the token.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan migrate --force` — `audit_logs` table created on MySQL.
+- Live HTTP smoke test against the running Apache/MySQL stack: a failed login produced `[...] local.WARNING: auth.login_failed {"email":"...","ip":"..."}` in `storage/logs/laravel.log` with no password field; creating a user through the real form produced a matching `audit_logs` row in MySQL (verified via `tinker`: `action=user.created`, correct `subject_id`, `user_id` = the acting admin, `properties` = status/roles); a plain user hitting `/roles` got `403` and produced `auth.access_denied {"user_id":...,"path":"roles","ip":"..."}` in the log. Log file and temporary users cleaned up afterward.
+
+Tests:
+- `php artisan test` — 47/47 passed (9 new: 5 Audit Log + 2 authorization-logging + 2 added to existing Auth test files), run against the testing environment's SQLite config (unmodified `phpunit.xml`); `Log::spy()`/`Log::shouldHaveReceived()` used to assert on log calls without touching the real log file during tests.
+
+Docker:
+No image/container changes this step; ran against the already-running stack.
+
+Problems and resolution:
+1. The first version of `AuthorizationLoggingTest` failed both cases (`InvalidCountException`, "called 0 times") — Laravel's exception handler silently drops `AuthenticationException`/`AuthorizationException` from reporting by default (they're in the framework's internal "don't report" list, since they're expected 401/403 outcomes), so the custom `report()` closures registered in `bootstrap/app.php` never ran at all. Fixed by calling `$exceptions->stopIgnoring([AuthenticationException::class, AuthorizationException::class])` before registering the closures, and returning `false` from each closure so Laravel's own default log line doesn't also fire alongside the custom one.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation. Remaining Phase 1 scope per `PHASE-1-SPEC.md`: a real Dashboard, custom error pages (403/404/422/500), and Seeders (a proper `AdminUserSeeder` to replace the manual `genodessa@gmail.com` dev account) — project owner has indicated visual/UI work (including these) will resume later.
