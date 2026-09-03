@@ -216,4 +216,58 @@ Status:
 DONE
 
 Next step:
-Awaiting explicit confirmation from the project owner before starting. Candidates per `PHASE-1-SPEC.md`: Users (CRUD, status, role assignment) or Roles/Permissions (introduces `spatie/laravel-permission`) — Users is the more natural next step since Roles' UI needs a user list to assign roles to, but not yet confirmed.
+Roles/Permissions was confirmed as the next step (project owner's explicit choice, over Users) specifically to avoid ever shipping `/users` gated only by `auth` before real permissions exist. See Step 4 below.
+
+---
+
+## Step 4 — Roles & Permissions
+
+Date: 2026-09-03
+
+Goal:
+Install `spatie/laravel-permission`, seed base roles/permissions, and build the Roles CRUD module (list/create/edit/view/delete + assign permissions to a role) per `PHASE-1-SPEC.md`. Explicitly deferred to the Users step (not in scope here): assigning roles *to a user*, and last-administrator protection — both are Users-module concerns per `PHASE-1-SPEC.md`'s own section split, and can't be built without a Users UI to build them into.
+
+Changed files:
+- `app/Models/User.php` — added Spatie's `HasRoles` trait, giving `$user->can('x.y')`/`assignRole()`/`getRoleNames()` etc.
+- `database/seeders/DatabaseSeeder.php` — now calls `RolePermissionSeeder` instead of creating the skeleton's placeholder "Test User".
+- `docs/IMPLEMENTATION-LOG.md` — this entry.
+
+Created files:
+- `config/permission.php`, `database/migrations/2026_09_03_170331_create_permission_tables.php` — published as-is from `spatie/laravel-permission` (`permissions`, `roles`, `model_has_permissions`, `model_has_roles`, `role_has_permissions`, all FKs `cascadeOnDelete()`).
+- `database/migrations/2026_09_03_170500_add_description_to_permission_tables.php` — adds a nullable `description` column to `roles` and `permissions`, to match the "Описание" field from `PHASE-1-SPEC.md`'s Roles form. Spatie's own `name`/`guard_name` columns are left untouched; no separate `slug` column was added — `name` already serves as the unique, slug-shaped identifier used in every permission check, so a second slug field would just duplicate it.
+- `database/seeders/RolePermissionSeeder.php` — seeds the 8 Phase-1 permissions (`users.*`, `roles.*`) and 3 roles (`admin`, `manager`, `user`); `admin` gets all 8 permissions, `manager`/`user` are created with none (assignable later via the Roles UI — not hardcoded). Idempotent (`firstOrCreate`), safe to re-run.
+- `app/Modules/Roles/Requests/{StoreRoleRequest,UpdateRoleRequest}.php` — `name` (required, unique), `description` (nullable), `permissions.*` (must exist in the `permissions` table).
+- `app/Modules/Roles/Services/RoleService.php` — `paginate()`, `allPermissions()`, `create()`, `update()`, `delete()`. Uses `syncPermissions()`; relies on the migration's DB-level cascade deletes for cleanup on role deletion (no manual detach logic needed).
+- `app/Modules/Roles/Controllers/RoleController.php` — thin resource controller (index/create/store/show/edit/update/destroy), all delegating to `RoleService`.
+- `app/Modules/Roles/routes.php` — `/roles` resource routes behind `auth` + one `can:roles.<action>` middleware per route.
+- `resources/views/layouts/app.blade.php` — new minimal shared layout (nav with Dashboard/Roles links gated by `@can`, logout button, flash-status/error rendering). Introduced now because Roles adds 4 more authenticated pages that would otherwise duplicate the full HTML shell each `login.blade.php`/`dashboard.blade.php` had — this is plain Blade `@extends`/`@yield`, not the full Header+Sidebar+Content admin UI from the original spec, which remains its own future step.
+- `resources/views/roles/{index,create,edit,show}.blade.php`, `resources/views/roles/partials/form.blade.php` — minimal, extend the new layout.
+- `resources/views/dashboard.blade.php` — rewritten to extend `layouts.app`; now also shows the user's role names.
+- `tests/Feature/Roles/RoleTest.php` — 8 tests: guest redirected to login, user without permission gets 403, admin can view the list, admin can create a role with permissions, role name uniqueness is enforced, admin can update a role's permissions, admin can delete a role, a user holding only `roles.view` can list but not create/gets 403.
+
+Deleted files:
+None (the skeleton's placeholder "Test User" seeding line was removed from `DatabaseSeeder`, not a file deletion).
+
+Dependencies:
+- `spatie/laravel-permission` (^8.3, installed 8.3.0) + its `spatie/laravel-package-tools` dependency. This was the one pre-approved, expected addition (`docs/DECISIONS.md` #4) — no other packages added.
+
+Checks:
+- `php artisan migrate --force` — both new migrations applied to MySQL.
+- `php artisan db:seed --force` — roles/permissions seeded; `admin` role assigned to the existing manual dev user (`genodessa@gmail.com`) via `tinker` (not committed — same convention as the earlier temporary dev login).
+- `php artisan route:list` — confirms all 7 `roles.*` routes registered via the existing module auto-discovery loop.
+- Live HTTP smoke test against the running Apache/MySQL stack: logged in as `genodessa@gmail.com` (has `admin` role) → `/roles` returns `200` and lists all 3 seeded roles with correct permission counts (admin: 8); dashboard now shows "Роли: admin". A second temporary user with no role → `/roles` returns `403`. Temporary user removed afterward.
+
+Tests:
+- `php artisan test` — 24/24 passed (8 new Roles tests + the 16 from Steps 1-3), run against the testing environment's SQLite config (unmodified `phpunit.xml`); `RolePermissionSeeder` is seeded explicitly in `RoleTest::setUp()` via `$this->seed()`.
+
+Docker:
+No image/container changes this step; ran against the already-running stack from Step 3.
+
+Problems and resolution:
+None.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation. Proposed: Step 5 — Users (CRUD, status, role assignment via the now-existing Roles/Permissions, self-protection and last-administrator protection), per `PHASE-1-SPEC.md`.
