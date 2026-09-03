@@ -119,9 +119,9 @@ return [
     | Brute-force Protection
     |--------------------------------------------------------------------------
     |
-    | Rate limits applied to authentication-related endpoints (login, and
-    | later password reset). Kept in configuration rather than hardcoded
-    | so limits can be tuned per environment without a code change.
+    | Rate limits applied to authentication-related endpoints (login,
+    | forgot-password, reset-password). Kept in configuration rather than
+    | hardcoded so limits can be tuned per environment without a code change.
     |
     */
 
@@ -129,6 +129,10 @@ return [
         'login' => [
             'max_attempts' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS', 5),
             'decay_minutes' => (int) env('AUTH_LOGIN_DECAY_MINUTES', 1),
+        ],
+        'password_reset' => [
+            'max_attempts' => (int) env('AUTH_PASSWORD_RESET_MAX_ATTEMPTS', 5),
+            'decay_minutes' => (int) env('AUTH_PASSWORD_RESET_DECAY_MINUTES', 1),
         ],
     ],
 

@@ -164,3 +164,56 @@ Work paused here at the project owner's request (switching to other work). State
 - Not yet implemented: Password reset, Users CRUD, Roles/Permissions (spatie/laravel-permission not installed yet), Audit Log, real Dashboard module, UI layout, Seeders.
 - Next proposed step (unconfirmed): Step 3 — Password reset.
 - Governance: continue one small confirmed step at a time; keep `docs/ARCHITECTURE.md`/`DECISIONS.md`/`IMPLEMENTATION-LOG.md` current; see those files plus `docs/PHASE-1-SPEC.md` for full approved scope and decisions before resuming.
+
+---
+
+## Step 3 — Password Reset
+
+Date: 2026-09-03
+
+Goal:
+Implement the forgot-password / reset-password flow per `PHASE-1-SPEC.md`: `/forgot-password` (email), `/reset-password/{token}` (token, email, password, password_confirmation), built on Laravel's native `Password` broker (random, hashed, time-limited, single-use tokens — no custom token logic). No Users/Roles/Permissions/Audit/Dashboard work.
+
+Changed files:
+- `app/Modules/Auth/routes.php` — added `GET/POST /forgot-password` (`password.request`/`password.email`, behind `guest` + `throttle:password-reset` on POST) and `GET /reset-password/{token}` + `POST /reset-password` (`password.reset`/`password.update`, same middleware pattern). Route names follow Laravel's own convention exactly (`password.reset` is required as-is by the framework's default `ResetPassword` notification, which hardcodes a `route('password.reset', ...)` call).
+- `config/auth.php` — added `throttle.password_reset` (`max_attempts`/`decay_minutes`, sourced from `AUTH_PASSWORD_RESET_MAX_ATTEMPTS`/`AUTH_PASSWORD_RESET_DECAY_MINUTES`), alongside the existing `throttle.login` block.
+- `app/Providers/AppServiceProvider.php` — registered the `password-reset` named rate limiter (same `email|ip` keying pattern as `login`).
+- `.env`, `.env.example` — added `AUTH_PASSWORD_RESET_MAX_ATTEMPTS=5`, `AUTH_PASSWORD_RESET_DECAY_MINUTES=1`.
+- `resources/views/auth/login.blade.php` — added a "Забыли пароль?" link to `password.request`, and rendering for a `session('status')` flash message.
+
+Created files:
+- `app/Modules/Auth/Requests/ForgotPasswordRequest.php` — validates `email`.
+- `app/Modules/Auth/Requests/ResetPasswordRequest.php` — validates `token`, `email`, `password` (`confirmed`, `Password::min(8)`).
+- `app/Modules/Auth/Services/PasswordResetService.php` — `sendResetLink()` (thin wrapper over `Password::sendResetLink()`) and `reset()` (thin wrapper over `Password::reset()`, sets the new password via `forceFill` + the model's existing `hashed` cast, fires `PasswordReset` event, throws one generic `ValidationException` for any non-`PASSWORD_RESET` status).
+- `app/Modules/Auth/Controllers/PasswordResetController.php` — thin: `create()`/`store()` for the forgot-password form, `edit()`/`update()` for the reset form.
+- `resources/views/auth/forgot-password.blade.php`, `resources/views/auth/reset-password.blade.php` — minimal unstyled forms, consistent with `login.blade.php`.
+- `tests/Feature/Auth/PasswordResetTest.php` — 5 tests: reset-link request notifies an existing user, reset-link request behaves identically (and sends nothing) for an unknown email, full reset with a valid token (including that the user can then log in with the new password and the old password is gone), reset fails with an expired token, a token cannot be reused.
+
+Deleted files:
+None.
+
+Dependencies:
+None added — built entirely on Laravel's native `Password` broker, `Notification::fake()`/`ResetPassword` notification, and validation, per the approved architecture (no custom `MailService`; transport is swapped later purely via `config/mail.php`/`.env`).
+
+Design decisions made within this step's scope (not architecturally significant, no `DECISIONS.md` entry needed):
+- The forgot-password response is **always** the same generic "if that email is registered, a link was sent" message, regardless of whether `Password::sendResetLink()` actually found a user — extends the same email-enumeration protection already applied to login in Step 2.
+- A second, independent rate limiter (`password-reset`, IP+email keyed) was added on top of Laravel's own built-in per-email 60-second throttle inside the `Password` broker (`config/auth.php: passwords.users.throttle`, unchanged) — the broker's throttle alone doesn't protect `/reset-password` itself (token-guessing) or limit requests across many different email addresses from one IP.
+
+Checks:
+- `php artisan route:list` — confirms `password.request`, `password.email`, `password.reset`, `password.update` all registered via the existing module auto-discovery loop.
+- Live HTTP smoke test against the running Apache/MySQL stack: requested a reset link for a temporary user, extracted the real reset URL from `storage/logs/laravel.log` (`MAIL_MAILER=log` in this environment), opened it (`200`), submitted a new password (`302` to `/login`), confirmed the old password no longer authenticates and the new one logs in successfully (`302` to `/dashboard`). Temporary user and log contents removed afterward.
+
+Tests:
+- `php artisan test` — 16/16 passed (5 new Password Reset tests + the 11 from Steps 1-2), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes this step. Containers had been stopped between sessions; brought back up via `docker-compose up -d` in `crm/`. Hit a host port conflict (80/443/8083/3306) with another unrelated local project (`wonder5`, same base Docker template) — resolved by stopping `wonder5`'s containers (project owner's explicit choice over remapping `crm`'s ports) rather than editing `docker-compose.yml`.
+
+Problems and resolution:
+None specific to the password-reset implementation itself; the only issue this session was the pre-existing-environment port conflict noted above.
+
+Status:
+DONE
+
+Next step:
+Awaiting explicit confirmation from the project owner before starting. Candidates per `PHASE-1-SPEC.md`: Users (CRUD, status, role assignment) or Roles/Permissions (introduces `spatie/laravel-permission`) — Users is the more natural next step since Roles' UI needs a user list to assign roles to, but not yet confirmed.

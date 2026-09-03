@@ -31,5 +31,14 @@ class AppServiceProvider extends ServiceProvider
                 config('auth.throttle.login.max_attempts'),
             )->by($key);
         });
+
+        RateLimiter::for('password-reset', function (Request $request) {
+            $key = Str::lower((string) $request->input('email')).'|'.$request->ip();
+
+            return Limit::perMinutes(
+                config('auth.throttle.password_reset.decay_minutes'),
+                config('auth.throttle.password_reset.max_attempts'),
+            )->by($key);
+        });
     }
 }
