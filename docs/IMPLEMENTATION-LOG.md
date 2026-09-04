@@ -965,3 +965,20 @@ DONE
 
 Next step:
 Project owner's next question (deployment: how to move this CRM to real hosting so their website can actually reach `/api/products`) is being answered separately — see the reply accompanying this step. Once hosting is confirmed, Orders/Users API endpoints and draggable Dashboard cards remain open candidates.
+
+---
+
+## Session paused after Step 18 — deployment on hold
+
+Date: 2026-09-04
+
+Work paused here at the project owner's request; hosting/deployment is postponed for now ("перенос откладывается на некоторое время"). State to resume from:
+
+- Steps 1-18 all DONE, committed on `main` up to `ca84074`, pushed to `https://github.com/gen2023/crm.git`.
+- Phase 1 complete. Phase 2 so far: Customers, Products, Orders, Settings (Dashboard card visibility + low-stock threshold), and a first API surface (Products, Sanctum token auth).
+- Stack: `docker-compose up -d` in `crm/`, app at `https://localhost`. Login: `genodessa@gmail.com` / `Genodessa2026!`. API token for testing was created and then revoked during Step 18's live check — issue a fresh one with `php artisan api-token:create <email> <name>` when needed again.
+- **Deployment groundwork discussed but not started.** The project owner has a hosting provider in mind (`ukraine.com.ua`, VPS with root access, ~2 CPU/4GB recommended, Ubuntu). When resuming, the reply just before this pause has the full checklist (`.env` changes for production, SSL/Let's Encrypt, removing the public `3306`/`8083` port exposure, etc.). Two concrete open questions from that reply, still unanswered:
+  1. Should the outer `crm/` Docker infrastructure (currently **not** in any git repo — see `DECISIONS.md` #11/#12) get its own separate git repository, so deployment is `git clone` + `git clone` instead of manual file copying?
+  2. Should a `docs/DEPLOYMENT.md` step-by-step guide be written now (in `cms/docs/`), or wait until the VPS is actually provisioned?
+- Also still open from earlier: draggable Dashboard card reordering (answered as "worth doing, moderate effort" but not built — see Step 15/17 discussion), and the Orders/Users API endpoints noted in `docs/BACKLOG.md`.
+- No other open questions blocking work; nothing else has been decided.
