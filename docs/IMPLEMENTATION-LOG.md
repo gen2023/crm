@@ -815,3 +815,52 @@ DONE — for the parts with clear scope. Two items from the same request are exp
 
 Next step:
 Awaiting the project owner's decision on card-visibility settings (per-user, stored where?) and whether drag-to-reorder is worth building now, per the questions raised in this step's reply.
+
+---
+
+## Step 16 — Settings module: Dashboard card visibility
+
+Date: 2026-09-04
+
+Goal:
+Answer to Step 15's open question: the project owner confirmed card visibility is **one global, admin-configured setting** (not per-user). Implements a small generic `settings` key-value store plus a Settings screen to toggle which Dashboard cards are shown. Drag-to-reorder remains explicitly deferred (answered but not built — see the reply accompanying Step 15).
+
+Changed files:
+- `config/dashboard.php` — added a `cards` map: canonical card key → `{label, permission}` for all four existing cards. This is the single source of truth both the Settings screen and the Dashboard controller read from, so a future new card only needs an entry here plus its query method.
+- `app/Modules/Dashboard/Services/DashboardService.php` — added `enabledCardKeys()` (reads `Setting::get('dashboard.enabled_cards', <all keys>)` — defaults to everything enabled until an admin saves otherwise) and `visibleCardKeysFor(User $user)` (intersects the enabled set with which cards the user actually holds the permission for — the setting is a convenience, permission checks remain the real boundary).
+- `app/Modules/Dashboard/Controllers/DashboardController.php` — now computes `visibleCardKeysFor()` once and only queries/passes each card's data when its key is in that list (previously this was permission-only).
+- `resources/views/dashboard/index.blade.php` — each card block now gated by `in_array($key, $visibleCards)` instead of `@can`, since "visible" already folds the permission check in.
+- `database/seeders/RolePermissionSeeder.php` — added `settings.edit` (single permission — this is one small form, no separate `settings.view`, unlike other modules).
+- `resources/views/layouts/app.blade.php` — added a "Settings" sidebar link (new gear-style `settings` icon).
+
+Created files:
+- `database/migrations/2026_09_04_100000_create_settings_table.php` — `settings`: `key` (unique string), `value` (nullable JSON).
+- `app/Models/Setting.php` — deliberately generic key-value model (`Setting::get($key, $default)` / `Setting::set($key, $value)`), not hardcoded to dashboard cards, so the next admin-editable-without-a-deploy setting doesn't need a new table.
+- `app/Modules/Settings/Requests/UpdateDashboardSettingsRequest.php`, `app/Modules/Settings/Services/SettingsService.php` (`enabledDashboardCards()`, `updateDashboardCards()` — the latter also writes a `settings.updated` audit-log entry, same convention as every other mutating Service), `app/Modules/Settings/Controllers/SettingsController.php` (`edit`/`update` — a singleton-style resource, one page), `app/Modules/Settings/routes.php` (`GET`/`PUT /settings`, behind `can:settings.edit`).
+- `resources/views/settings/edit.blade.php` — a checkbox per configured card, pre-checked from the current setting.
+- `tests/Feature/Settings/SettingsTest.php` — 4 tests: guest redirected, 403 without permission, all cards checked by default (nothing saved yet), saving a subset both persists and actually removes the unchecked card from `/dashboard`.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan migrate --force`, `php artisan db:seed --force` (adds `settings.edit` to the live `admin` role) run against the live stack.
+- Live HTTP check, as `genodessa@gmail.com`: `/settings` shows all 4 card checkboxes checked; submitting the real form with `low_stock_products` unchecked → `/dashboard` no longer shows "Мало на складе" while "Последние 5 заказов" still does; reset back to all four enabled afterward (the app's actual default state) and confirmed.
+
+Tests:
+- `php artisan test` — 95/95 passed (4 new).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None.
+
+Status:
+DONE
+
+Next step:
+Awaiting the project owner's next direction — draggable card reordering is still on the table if wanted; otherwise Sources/Integrations, the future API module, or stock management remain the open Phase 2 candidates from Step 14.

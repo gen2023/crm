@@ -35,6 +35,7 @@ class RolePermissionSeeder extends Seeder
         'orders.view',
         'orders.create',
         'orders.edit',
+        'settings.edit',
     ];
 
     /**

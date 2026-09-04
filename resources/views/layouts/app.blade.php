@@ -151,6 +151,12 @@
                         <span class="label">Roles</span>
                     </a>
                 @endcan
+                @can('settings.edit')
+                    <a href="{{ route('settings.edit') }}" class="sidebar-link {{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                        <x-icon name="settings" />
+                        <span class="label">Settings</span>
+                    </a>
+                @endcan
             </nav>
         </aside>
 

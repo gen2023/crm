@@ -6,29 +6,31 @@
     <h1>Dashboard</h1>
 
     <div class="card-grid">
-        <div class="card">
-            <h2 style="font-size:1rem;margin-top:0;">История заходов</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Пользователь</th>
-                        <th>Дата</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($recentLogins as $entry)
+        @if (in_array('recent_logins', $visibleCards, true))
+            <div class="card">
+                <h2 style="font-size:1rem;margin-top:0;">История заходов</h2>
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ $entry->actor?->name ?? '—' }}</td>
-                            <td>{{ $entry->created_at->format('d.m.Y H:i') }}</td>
+                            <th>Пользователь</th>
+                            <th>Дата</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="2">Пока нет записей.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        @forelse ($recentLogins as $entry)
+                            <tr>
+                                <td>{{ $entry->actor?->name ?? '—' }}</td>
+                                <td>{{ $entry->created_at->format('d.m.Y H:i') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="2">Пока нет записей.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @endif
 
-        @can('orders.view')
+        @if (in_array('recent_orders', $visibleCards, true))
             <div class="card">
                 <h2 style="font-size:1rem;margin-top:0;">Последние 5 заказов</h2>
                 <table>
@@ -54,7 +56,9 @@
                     </tbody>
                 </table>
             </div>
+        @endif
 
+        @if (in_array('order_status_counts', $visibleCards, true))
             <div class="card">
                 <h2 style="font-size:1rem;margin-top:0;">Заказы по статусам</h2>
                 <table>
@@ -68,9 +72,9 @@
                     </tbody>
                 </table>
             </div>
-        @endcan
+        @endif
 
-        @can('products.view')
+        @if (in_array('low_stock_products', $visibleCards, true))
             <div class="card">
                 <h2 style="font-size:1rem;margin-top:0;">Мало на складе (&lt; {{ config('dashboard.low_stock_threshold') }})</h2>
                 <table>
@@ -92,6 +96,6 @@
                     </tbody>
                 </table>
             </div>
-        @endcan
+        @endif
     </div>
 @endsection
