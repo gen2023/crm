@@ -10,14 +10,14 @@ An entry here becomes real work only once it's turned into an approved step (wit
 
 Project owner noted, while discussing Dashboard/UI work, that an API module will be needed later. Requirements as stated:
 
-- Products: add, get, update a product; list products.
-- Orders: add, get, update an order; list orders.
-- Users: add, get, update a user.
+- Products: add, get, update a product; list products. **Done — see `docs/DECISIONS.md` #13 and `IMPLEMENTATION-LOG.md` Step 18.** `GET/POST /api/products`, `GET/PUT /api/products/{id}`, Sanctum token auth, same `can:products.*` permissions as the web UI.
+- Orders: add, get, update an order; list orders. **Not started.**
+- Users: add, get, update a user. **Not started.**
 
-Notes for whoever scopes this later:
-- `ARCHITECTURE.md`'s "Protected decisions" section already anticipates this: `Web Controller → Service → Model` and `API Controller → Service → Model` are meant to share the same Services — the API layer should be additional controllers/routes calling the *existing* `UserService` etc., not parallel business logic.
-- Products and Orders are Phase 2+ modules (Customers/Products/Orders — see `PHASE-1-SPEC.md`'s Future Expansion Contract); their own Web CRUD doesn't exist yet either, so the API can't be built before the underlying module exists.
-- `laravel/sanctum` (or similar) is not installed — per `DECISIONS.md` #10, that's deliberate until there's an actual API consumer. This note is the first sign one may be coming; installing it is still a decision to make explicitly when this is actually scoped, not something to add speculatively now.
+Notes for whoever scopes the remaining pieces:
+- Follow the pattern Products just established: an `app/Modules/<Name>/Controllers/Api/...Controller.php` + `app/Modules/<Name>/Resources/...Resource.php` + `app/Modules/<Name>/api-routes.php` (auto-discovered by `routes/api.php`), reusing the module's existing web `Service` and `Request` classes rather than duplicating validation/business logic.
+- `laravel/sanctum` is now installed (`DECISIONS.md` #13) — no need to re-decide that part. Issue tokens via `php artisan api-token:create {email} [name]`.
+- Orders' API will need to decide how nested `items` (product_id/quantity) are represented in the JSON payload — the web form's `items[n][product_id]` shape doesn't need to carry over verbatim to a JSON API; a plain `items: [{product_id, quantity}]` array is more natural for a JSON client.
 
 ---
 

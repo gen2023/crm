@@ -911,3 +911,57 @@ DONE
 
 Next step:
 Awaiting the project owner's next direction — draggable card reordering remains open if wanted; otherwise Sources/Integrations, the future API module, or stock management remain the open Phase 2 candidates from Step 14.
+
+---
+
+## Step 18 — Products API (Sanctum)
+
+Date: 2026-09-04
+
+Goal:
+First real API surface: token-authenticated Products endpoints, so the project owner's external website can push its product catalog into the CRM once deployed. Triggered `DECISIONS.md` #10's condition ("Sanctum once there's an actual API consumer") — see new decision #13.
+
+Changed files:
+- `composer.json`/`composer.lock` — added `laravel/sanctum`.
+- `bootstrap/app.php` — `withRouting()` now also loads `routes/api.php` (added by `php artisan install:api`).
+- `app/Models/User.php` — added Sanctum's `HasApiTokens` trait.
+
+Created files:
+- `database/migrations/2026_09_04_151321_create_personal_access_tokens_table.php` (Sanctum's own migration, published by `install:api`).
+- `config/sanctum.php` (published default config, untouched).
+- `routes/api.php` — mirrors `routes/web.php`'s convention: loops over `app/Modules/*/api-routes.php` and requires each (the installer's placeholder `/user` sample route was removed).
+- `app/Modules/Products/api-routes.php` — `GET/POST /api/products`, `GET/PUT /api/products/{product}`, behind `auth:sanctum` then the same `can:products.<action>` middleware the web routes use.
+- `app/Modules/Products/Controllers/Api/ProductApiController.php` — `index`/`show`/`store`/`update`, all delegating to the **existing** `ProductService` and reusing the **existing** `StoreProductRequest`/`UpdateProductRequest` (same validation rules as the web form — no duplicated rules). `store()` returns `201`.
+- `app/Modules/Products/Resources/ProductResource.php` — JSON shape: `id`, `name`, `sku`, `price` (string), `stock`, `description`, `category`, `photo_url`, `created_at`/`updated_at` (ISO 8601).
+- `app/Console/Commands/CreateApiToken.php` — `php artisan api-token:create {email} {name=integration}`, prints a plain-text Sanctum token once. Chosen over a token-management UI screen since this is a server-to-server credential an admin issues rarely, not something needing a full CRUD screen yet.
+- `tests/Feature/Api/ProductApiTest.php` — 7 tests: no token → `401`; token without `products.view` → `403`; list; get one; create (`201`, persisted); create validation errors (`422`, same required fields as the web form); update.
+
+Deleted files:
+None.
+
+Dependencies:
+`laravel/sanctum` (^4.3) — see `DECISIONS.md` #13 for the reasoning.
+
+Design notes:
+- Confirmed empirically (via the passing 403 test) that Spatie permission checks work identically for a Sanctum-token-authenticated `User` as for a session-authenticated one — permissions aren't guard-scoped in a way that breaks this, since it's the same `User` model with the same `web`-guard roles/permissions either way.
+- API error responses are already JSON, not the HTML error pages — `bootstrap/app.php`'s `shouldRenderJsonWhen()` (added back in Step 7) already covers `api/*` paths, so no additional wiring was needed for 401/403/422/500 on this new surface.
+- No `DELETE /api/products/{id}` — matches the original BACKLOG.md ask (add/get/update/list only) and the web UI's own product-delete safeguards weren't re-litigated for the API.
+
+Checks:
+- `php artisan route:list --path=api` — confirms all 4 routes.
+- Live HTTP check against the running stack: issued a real token via `php artisan api-token:create genodessa@gmail.com website-test`; `GET /api/products` with `Authorization: Bearer <token>` → `200`; `POST /api/products` with a JSON body → `201` with the created product's JSON. Test product and token revoked afterward.
+
+Tests:
+- `php artisan test` — 104/104 passed (7 new).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None.
+
+Status:
+DONE
+
+Next step:
+Project owner's next question (deployment: how to move this CRM to real hosting so their website can actually reach `/api/products`) is being answered separately — see the reply accompanying this step. Once hosting is confirmed, Orders/Users API endpoints and draggable Dashboard cards remain open candidates.

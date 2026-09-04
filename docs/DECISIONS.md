@@ -123,3 +123,13 @@ Each entry: date, decision, context/reason, consequences.
 **Context:** The outer `crm/` directory is not part of the application's git repository (decision 11) and was originally built as a generic PHP/Apache/MySQL scaffold predating the Laravel decision.
 
 **Consequences:** Docker/infrastructure changes (base image version, installed PHP extensions, Composer availability, entrypoint behavior) are made as needed to support the approved application architecture, and are logged in `IMPLEMENTATION-LOG.md` as implementation detail rather than in this decision log, unless they themselves become architecturally significant.
+
+---
+
+## 2026-09-04 — 13. Laravel Sanctum installed — API now has a real consumer
+
+**Decision:** Install `laravel/sanctum` and expose a token-authenticated JSON API, starting with Products (`GET/POST /api/products`, `GET/PUT /api/products/{id}`), reusing the existing `ProductService` and its web `StoreProductRequest`/`UpdateProductRequest` validation rules.
+
+**Context:** Decision 10 explicitly deferred Sanctum "until an actual API consumer exists." The project owner now has a real one: their own website needs to push its product/order catalog into the CRM, which requires the CRM to expose an authenticated API reachable from outside `localhost`. Tokens are issued via a new `php artisan api-token:create {email}` command (Sanctum personal access tokens, no login/session flow needed since this is a server-to-server integration, not a browser client) rather than a token-management UI, to keep scope to what's actually needed right now.
+
+**Consequences:** `routes/api.php` now auto-discovers `app/Modules/*/api-routes.php` (mirroring the existing `routes/web.php` module-discovery convention). API routes are gated the same way as web routes — `auth:sanctum` for authentication, then the same `can:products.*` Gate/Spatie permission middleware — so a token is tied to a real `User` with real roles/permissions, not a separate authorization system. `User` now has the `HasApiTokens` trait. Every future module that gets an API surface should follow this same pattern (its own `api-routes.php`, reusing its existing web Service/Requests) rather than duplicating business logic, per `ARCHITECTURE.md`'s "Web Controller → Service → Model / API Controller → Service → Model" note.
