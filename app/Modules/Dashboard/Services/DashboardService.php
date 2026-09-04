@@ -13,6 +13,18 @@ class DashboardService
 {
     public const SETTINGS_KEY = 'dashboard.enabled_cards';
 
+    public const LOW_STOCK_THRESHOLD_KEY = 'dashboard.low_stock_threshold';
+
+    /**
+     * The low-stock threshold is admin-editable (Settings screen); the
+     * .env-backed config value is only the initial default before an admin
+     * has ever saved one.
+     */
+    public function lowStockThreshold(): int
+    {
+        return (int) Setting::get(self::LOW_STOCK_THRESHOLD_KEY, config('dashboard.low_stock_threshold'));
+    }
+
     /**
      * Which card keys are currently enabled, admin-wide (see the Settings
      * module). Defaults to every card defined in config('dashboard.cards')
@@ -75,7 +87,7 @@ class DashboardService
     public function lowStockProducts(): Collection
     {
         return Product::query()
-            ->where('stock', '<', config('dashboard.low_stock_threshold'))
+            ->where('stock', '<', $this->lowStockThreshold())
             ->orderBy('stock')
             ->get();
     }

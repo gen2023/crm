@@ -864,3 +864,50 @@ DONE
 
 Next step:
 Awaiting the project owner's next direction — draggable card reordering is still on the table if wanted; otherwise Sources/Integrations, the future API module, or stock management remain the open Phase 2 candidates from Step 14.
+
+---
+
+## Step 17 — Settings tabs, editable low-stock threshold, scrollable low-stock card
+
+Date: 2026-09-04
+
+Goal:
+Three pieces of feedback on Step 16: (1) the Settings page should be tab-structured, starting with one "Dashboard" tab; (2) the low-stock threshold wasn't editable anywhere in the UI (only via `.env`/`config`) — move it into the same Settings screen; (3) confirm/handle scrolling for the low-stock card once there are many (up to ~100) products.
+
+Changed files:
+- `app/Modules/Dashboard/Services/DashboardService.php` — added `LOW_STOCK_THRESHOLD_KEY` constant and `lowStockThreshold(): int` (`Setting::get(..., config('dashboard.low_stock_threshold'))` — the `.env` value is now only the initial default before an admin ever saves one via Settings); `lowStockProducts()` now calls this instead of reading `config()` directly.
+- `app/Modules/Dashboard/Controllers/DashboardController.php` — passes `lowStockThreshold` to the view (previously the view read `config()` directly, which would no longer reflect an admin-saved override).
+- `resources/views/dashboard/index.blade.php` — low-stock card heading now shows the live threshold; its table is wrapped in a new `.table-scroll` div (`max-height: 320px; overflow-y: auto`, sticky header) so a long list (tested with 15 rows live, designed for up to ~100) scrolls inside the card instead of stretching the grid row.
+- `resources/views/layouts/app.blade.php` — added `.tab-nav`/`.tab-btn`/`.tab-panel[hidden]` styles and a small generic tab-switching script (delegated click on any `.tab-nav`, toggles `.active` + sibling `[data-tab-panel]` visibility by matching `data-tab` — written once, reusable for any future tabbed page, not just Settings); added `.table-scroll` styles; added `input[type=number]` to the shared input styling (previously missing, so the new threshold field would've been unstyled).
+- `app/Modules/Settings/Requests/UpdateDashboardSettingsRequest.php` — added `low_stock_threshold` (`required|integer|min:0`).
+- `app/Modules/Settings/Services/SettingsService.php` — now depends on `DashboardService` directly (rather than duplicating its `Setting::get` calls) for `enabledDashboardCards()`/`lowStockThreshold()`; `updateDashboardCards()` renamed to `updateDashboardSettings(array $cards, int $lowStockThreshold)`, saving both settings and logging one `settings.updated` audit entry for the pair.
+- `app/Modules/Settings/Controllers/SettingsController.php` — passes `lowStockThreshold` to the view; `update()` passes both validated fields to the renamed service method.
+- `resources/views/settings/edit.blade.php` — rebuilt around a `.tab-nav`/`.tab-panel` pair (one tab, "Dashboard", `data-tab="dashboard"`) so adding a second settings category later is just another button + panel, no restructuring; the existing card checkboxes and the new `low_stock_threshold` number input now live in the same form/tab.
+- `tests/Feature/Settings/SettingsTest.php` — updated the existing "disable a card" test to also send the now-required `low_stock_threshold`; added 2 new tests: admin can change the threshold (persists and shows on reload), and the threshold is required (validation).
+
+Created files:
+None.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- Live HTTP check against the running stack, as `genodessa@gmail.com`: `/settings` HTML contains `tab-nav`/`tab-btn` and the `low_stock_threshold` field; created 15 products with `stock=1` via `tinker`, confirmed all 15 render inside the `.table-scroll` wrapper on `/dashboard` (would scroll rather than break the grid at the ~100-product scale the project owner described). Temporary products removed and log cleared afterward.
+
+Tests:
+- `php artisan test` — 97/97 passed (2 new, 1 updated).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None specific to this step (one live-check `tinker` command using a PHP `for` loop failed to parse due to Bash escaping of `$i` — same known class of issue as prior sessions' shell-escaping gotchas; switched to `Product::factory()->count(15)->create(...)` instead, no code impact).
+
+Status:
+DONE
+
+Next step:
+Awaiting the project owner's next direction — draggable card reordering remains open if wanted; otherwise Sources/Integrations, the future API module, or stock management remain the open Phase 2 candidates from Step 14.

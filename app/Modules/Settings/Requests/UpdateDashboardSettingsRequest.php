@@ -20,6 +20,7 @@ class UpdateDashboardSettingsRequest extends FormRequest
         return [
             'cards' => ['array'],
             'cards.*' => ['string', Rule::in(array_keys(config('dashboard.cards')))],
+            'low_stock_threshold' => ['required', 'integer', 'min:0'],
         ];
     }
 }

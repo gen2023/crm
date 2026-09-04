@@ -19,12 +19,16 @@ class SettingsController extends Controller
         return view('settings.edit', [
             'cards' => config('dashboard.cards'),
             'enabledCards' => $this->settingsService->enabledDashboardCards(),
+            'lowStockThreshold' => $this->settingsService->lowStockThreshold(),
         ]);
     }
 
     public function update(UpdateDashboardSettingsRequest $request): RedirectResponse
     {
-        $this->settingsService->updateDashboardCards($request->validated('cards', []));
+        $this->settingsService->updateDashboardSettings(
+            $request->validated('cards', []),
+            $request->validated('low_stock_threshold'),
+        );
 
         return redirect()->route('settings.edit')->with('status', 'Настройки сохранены.');
     }

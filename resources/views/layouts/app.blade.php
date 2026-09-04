@@ -91,9 +91,19 @@
         .btn .icon { width: 16px; height: 16px; }
         .btn-danger { background: var(--color-danger); color: var(--color-text-on-accent); }
         label { display: block; margin-top: 1rem; font-size: .875rem; }
-        input[type=text], input[type=email], input[type=password], textarea, select { width: 100%; padding: .55rem .7rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: none; background: var(--color-bg-input); font-size: .9rem; }
+        input[type=text], input[type=email], input[type=password], input[type=number], textarea, select { width: 100%; padding: .55rem .7rem; margin-top: .25rem; box-sizing: border-box; border-radius: 8px; border: none; background: var(--color-bg-input); font-size: .9rem; }
         .permissions { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
         h1 { font-size: 1.25rem; margin-top: 0; }
+
+        .tab-nav { display: flex; gap: .25rem; border-bottom: 1px solid var(--color-card-border); margin-bottom: 1.5rem; }
+        .tab-btn { padding: .6rem 1rem; border: none; background: none; cursor: pointer; font-size: .9rem; color: #666; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .tab-btn:hover { color: #333; }
+        .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+        .tab-panel[hidden] { display: none; }
+
+        .table-scroll { max-height: 320px; overflow-y: auto; }
+        .table-scroll table { border-collapse: collapse; }
+        .table-scroll thead th { position: sticky; top: 0; background: #fff; }
 
         .row-actions { display: flex; align-items: center; gap: .35rem; }
         .icon-btn {
@@ -235,6 +245,27 @@
                 if (e.key === 'Escape') {
                     dropdown.hidden = true;
                 }
+            });
+        })();
+
+        (function () {
+            document.querySelectorAll('.tab-nav').forEach(function (nav) {
+                var container = nav.parentElement;
+
+                nav.addEventListener('click', function (e) {
+                    var btn = e.target.closest('.tab-btn');
+                    if (!btn) return;
+
+                    var target = btn.dataset.tab;
+
+                    nav.querySelectorAll('.tab-btn').forEach(function (b) {
+                        b.classList.toggle('active', b === btn);
+                    });
+
+                    container.querySelectorAll(':scope > [data-tab-panel]').forEach(function (panel) {
+                        panel.hidden = panel.dataset.tabPanel !== target;
+                    });
+                });
             });
         })();
     </script>

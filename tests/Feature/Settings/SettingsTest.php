@@ -56,6 +56,7 @@ class SettingsTest extends TestCase
 
         $response = $this->actingAs($admin)->put('/settings', [
             'cards' => ['recent_logins', 'recent_orders', 'order_status_counts'],
+            'low_stock_threshold' => 2,
         ]);
 
         $response->assertRedirect(route('settings.edit'));
@@ -64,5 +65,31 @@ class SettingsTest extends TestCase
         $dashboard->assertOk();
         $dashboard->assertDontSee('Мало на складе');
         $dashboard->assertSee('Последние 5 заказов');
+    }
+
+    public function test_admin_can_change_the_low_stock_threshold(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->put('/settings', [
+            'cards' => array_keys(config('dashboard.cards')),
+            'low_stock_threshold' => 10,
+        ]);
+
+        $response->assertRedirect(route('settings.edit'));
+
+        $edit = $this->actingAs($admin)->get('/settings');
+        $edit->assertSee('value="10"', false);
+    }
+
+    public function test_low_stock_threshold_is_required(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->put('/settings', [
+            'cards' => array_keys(config('dashboard.cards')),
+        ]);
+
+        $response->assertSessionHasErrors('low_stock_threshold');
     }
 }

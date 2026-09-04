@@ -76,25 +76,27 @@
 
         @if (in_array('low_stock_products', $visibleCards, true))
             <div class="card">
-                <h2 style="font-size:1rem;margin-top:0;">Мало на складе (&lt; {{ config('dashboard.low_stock_threshold') }})</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Товар</th>
-                            <th>Остаток</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($lowStockProducts as $product)
+                <h2 style="font-size:1rem;margin-top:0;">Мало на складе (&lt; {{ $lowStockThreshold }})</h2>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
                             <tr>
-                                <td><a href="{{ route('products.show', $product) }}">{{ $product->name }}</a></td>
-                                <td>{{ $product->stock }}</td>
+                                <th>Товар</th>
+                                <th>Остаток</th>
                             </tr>
-                        @empty
-                            <tr><td colspan="2">Все товары в достатке.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($lowStockProducts as $product)
+                                <tr>
+                                    <td><a href="{{ route('products.show', $product) }}">{{ $product->name }}</a></td>
+                                    <td>{{ $product->stock }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="2">Все товары в достатке.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         @endif
     </div>

@@ -8,8 +8,10 @@ use App\Support\AuditLogger;
 
 class SettingsService
 {
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly DashboardService $dashboardService,
+    ) {
     }
 
     /**
@@ -17,19 +19,25 @@ class SettingsService
      */
     public function enabledDashboardCards(): array
     {
-        return Setting::get(DashboardService::SETTINGS_KEY, array_keys(config('dashboard.cards')));
+        return $this->dashboardService->enabledCardKeys();
+    }
+
+    public function lowStockThreshold(): int
+    {
+        return $this->dashboardService->lowStockThreshold();
     }
 
     /**
      * @param  list<string>  $cards
      */
-    public function updateDashboardCards(array $cards): void
+    public function updateDashboardSettings(array $cards, int $lowStockThreshold): void
     {
         Setting::set(DashboardService::SETTINGS_KEY, array_values($cards));
+        Setting::set(DashboardService::LOW_STOCK_THRESHOLD_KEY, $lowStockThreshold);
 
         $this->auditLogger->log('settings.updated', Setting::firstWhere('key', DashboardService::SETTINGS_KEY), [
-            'key' => DashboardService::SETTINGS_KEY,
-            'value' => $cards,
+            'cards' => $cards,
+            'low_stock_threshold' => $lowStockThreshold,
         ]);
     }
 }

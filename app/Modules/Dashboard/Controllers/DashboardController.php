@@ -22,6 +22,7 @@ class DashboardController extends Controller
             'recentLogins' => in_array('recent_logins', $visible, true) ? $this->dashboardService->recentLogins() : null,
             'recentOrders' => in_array('recent_orders', $visible, true) ? $this->dashboardService->recentOrders() : null,
             'lowStockProducts' => in_array('low_stock_products', $visible, true) ? $this->dashboardService->lowStockProducts() : null,
+            'lowStockThreshold' => $this->dashboardService->lowStockThreshold(),
             'orderStatusCounts' => in_array('order_status_counts', $visible, true) ? $this->dashboardService->orderStatusCounts() : null,
         ]);
     }
