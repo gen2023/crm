@@ -771,3 +771,47 @@ DONE
 
 Next step:
 Awaiting the project owner's next direction. Candidates: Sources/Integrations module (marketplace API keys + order ingestion — would start populating orders automatically instead of manual entry), the future API module noted in `docs/BACKLOG.md`, or stock management for Products/Orders (explicitly deferred in this step's Design notes).
+
+---
+
+## Step 15 — Design revision: sidebar borders/hover, wider layout, 3 new Dashboard cards
+
+Date: 2026-09-04
+
+Goal:
+Project owner feedback on the design system: separate the sidebar's logo area from its nav items with a (thicker) border, add a border between individual nav items, add a grey hover background to nav items (previously hover only changed text color); widen the page content area; add three new Dashboard cards (last 5 orders, products below a configurable low-stock threshold, order counts by status), arranged in a responsive grid (2-3 per row) instead of stacked. Two further asks — draggable card reordering, and a settings screen for which cards are visible — are answered/deferred below rather than built, pending the project owner's input (see the reply accompanying this step).
+
+Changed files:
+- `resources/views/layouts/app.blade.php` — new tokens `--color-sidebar-border` (`rgba(255,255,255,.14)`) and `--color-sidebar-hover` (`#333333`). `.sidebar-top` gets a `2px` bottom border (the "thicker" logo/menu divider); `.sidebar-link` gets a `1px` bottom border (divider between items) and `background: var(--color-sidebar-hover)` on `:hover`/`.active` (previously text-color-only). `.content-inner` max-width raised `1000px → 1400px`. New `.card-grid` utility (`display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem`, with `.card-grid .card { margin-top: 0 }` to avoid double-spacing against the existing stacked-card rule) — applied to the Dashboard only; other pages (Users/Roles/Products/Orders/Customers lists and forms) are unaffected and keep single-column stacking.
+- `app/Modules/Dashboard/Services/DashboardService.php` — added `recentOrders()`, `lowStockProducts()` (queries `stock < config('dashboard.low_stock_threshold')`), `orderStatusCounts()` (one grouped query, backfilled with `0` for any status with no orders yet, keyed by `Order::STATUS_LABELS` so the card always shows all four statuses).
+- `app/Modules/Dashboard/Controllers/DashboardController.php` — the three new cards' data is only fetched/passed when the current user actually holds `orders.view`/`products.view` (checked in the controller, not just hidden in Blade) — consistent with how every other permission-gated part of the UI works; a user without those permissions gets `null` for that data and the card markup itself is wrapped in a matching `@can` in the view, so nothing renders either way.
+- `resources/views/dashboard/index.blade.php` — rebuilt inside `.card-grid`: History card (unchanged), + "Последние 5 заказов" and "Заказы по статусам" (both behind `@can('orders.view')`), + "Мало на складе (< N)" (behind `@can('products.view')`, `N` read from `config('dashboard.low_stock_threshold')` so the page always reflects the actual configured value).
+- `tests/Feature/DashboardTest.php` — 3 new tests: a permission-less user sees none of the three new cards; an admin sees recent orders + status counts; an admin sees only the product below the configured threshold (not the one with plenty of stock).
+
+Created files:
+- `config/dashboard.php` — `low_stock_threshold` from `DASHBOARD_LOW_STOCK_THRESHOLD` (`.env`/`.env.example`, default `2`) — the project owner explicitly asked for this number to live in configuration, not be hardcoded, matching the existing `AUTH_LOGIN_MAX_ATTEMPTS`-style pattern.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Checks:
+- `php artisan test` confirmed no regression: a plain (unseeded-permissions) `User` hitting `/dashboard` does not throw when the controller calls `$user->can('orders.view')`/`can('products.view')` on a database with no `orders.view` permission row at all — Spatie's `checkPermissionTo()` (used internally by Gate's `can()`) catches its own `PermissionDoesNotExist` and returns `false` rather than throwing; confirmed by running the pre-existing `DashboardTest` cases first, before adding the new ones.
+- Live HTTP check against the running stack, as `genodessa@gmail.com`: `/dashboard` HTML contains `card-grid`, `sidebar-border`, `sidebar-hover`, and all three new card headings.
+
+Tests:
+- `php artisan test` — 91/91 passed (3 new).
+
+Docker:
+No image/container changes.
+
+Problems and resolution:
+None.
+
+Status:
+DONE — for the parts with clear scope. Two items from the same request are explicitly **not** implemented pending the project owner's answer (see the reply sent alongside this step): draggable card reordering, and a "which cards are visible" settings screen. Revisit this log entry once those are scoped.
+
+Next step:
+Awaiting the project owner's decision on card-visibility settings (per-user, stored where?) and whether drag-to-reorder is worth building now, per the questions raised in this step's reply.

@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -51,5 +55,54 @@ class DashboardTest extends TestCase
         foreach ($users->slice(1) as $user) {
             $response->assertSee($user->name);
         }
+    }
+
+    public function test_user_without_orders_or_products_permission_does_not_see_those_cards(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertDontSee('Последние 5 заказов');
+        $response->assertDontSee('Заказы по статусам');
+        $response->assertDontSee('Мало на складе');
+    }
+
+    public function test_admin_sees_recent_orders_and_status_counts(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $customer = Customer::factory()->create(['name' => 'Dash Customer']);
+        Order::factory()->for($customer)->create(['status' => 'new']);
+        Order::factory()->for($customer)->create(['status' => 'completed']);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Dash Customer');
+        $response->assertSee('Последние 5 заказов');
+        $response->assertSee('Заказы по статусам');
+    }
+
+    public function test_admin_sees_products_below_the_configured_stock_threshold(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        config(['dashboard.low_stock_threshold' => 2]);
+
+        $low = Product::factory()->create(['name' => 'Low Stock Item', 'stock' => 1]);
+        $plenty = Product::factory()->create(['name' => 'Plenty Item', 'stock' => 50]);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Low Stock Item');
+        $response->assertDontSee('Plenty Item');
     }
 }
