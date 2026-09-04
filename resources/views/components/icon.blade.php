@@ -15,6 +15,8 @@
         'check' => '<path d="M5 13l4 4L19 7"/>',
         'chevron-down' => '<path d="M5 8.5l7 7 7-7"/>',
         'customers' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10.5" r="2"/><path d="M6 16.5c0-1.8 1.4-3 3-3s3 1.2 3 3"/><path d="M14 9.5h4"/><path d="M14 13h4"/>',
+        'products' => '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+        'orders' => '<path d="M6 3h9l3 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V3z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h3"/>',
     ];
 @endphp
 

@@ -28,6 +28,13 @@ class RolePermissionSeeder extends Seeder
         'customers.view',
         'customers.create',
         'customers.edit',
+        'products.view',
+        'products.create',
+        'products.edit',
+        'products.delete',
+        'orders.view',
+        'orders.create',
+        'orders.edit',
     ];
 
     /**

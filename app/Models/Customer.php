@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
@@ -33,6 +34,11 @@ class Customer extends Model
         ];
     }
 
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
     /**
      * Percentage of this customer's finished orders that were completed
      * rather than cancelled. Null until they have at least one of either
@@ -47,5 +53,23 @@ class Customer extends Model
         }
 
         return round($this->completed_orders_count / $decided * 100, 1);
+    }
+
+    /**
+     * Recomputes every order-derived field from the orders table directly
+     * (rather than incrementing/decrementing counters as orders change) —
+     * simpler to reason about and immune to drift. Called by OrderService
+     * whenever an order tied to this customer is created, updated, or
+     * reassigned.
+     */
+    public function recalculateOrderStats(): void
+    {
+        $this->orders_count = $this->orders()->count();
+        $this->completed_orders_count = $this->orders()->where('status', Order::STATUS_COMPLETED)->count();
+        $this->cancelled_orders_count = $this->orders()->where('status', Order::STATUS_CANCELLED)->count();
+        $this->total_orders_amount = $this->orders()->sum('total_amount');
+        $this->last_order_at = $this->orders()->max('created_at');
+
+        $this->save();
     }
 }

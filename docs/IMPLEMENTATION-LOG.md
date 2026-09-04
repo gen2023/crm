@@ -676,3 +676,98 @@ Work paused here for the night at the project owner's request. State to resume f
 - Stack: `docker-compose up -d` in `crm/`, app at `https://localhost`. Login: `genodessa@gmail.com` / `Genodessa2026!` (now reproducible via `AdminUserSeeder`, no longer only a manual `tinker` row).
 - Not yet started: Products, Orders, Sources/Integrations (see `docs/BACKLOG.md` for the Sources module and the future API-module note).
 - No open questions blocking the next step — see "Next step" just above for the menu of what could come next; nothing has been decided yet.
+
+---
+
+## Step 13 — Products
+
+Date: 2026-09-04
+
+Goal:
+Products CRUD (list/create/edit/view/delete), gathered via a short Q&A: name, SKU (unique), price, stock, plus description/category/photo (project owner chose the wider field set over the bare minimum). Built first because Orders' line items need Products to reference.
+
+Fields:
+- `name`, `sku` (unique), `price` (decimal 12,2), `stock` (unsigned int), `description` (nullable text), `category` (nullable string, free text — not a managed lookup table, same reasoning as Customers' fields), `photo_path` (nullable, an uploaded image stored on the `public` disk).
+
+Changed files:
+- `database/seeders/RolePermissionSeeder.php` — added `products.view`/`create`/`edit`/`delete`.
+- `resources/views/layouts/app.blade.php` — added a "Products" sidebar link (`@can('products.view')`).
+- `resources/views/components/icon.blade.php` — added `products` and `orders` icons (the latter unused until Step 14, added at the same time to avoid touching this file twice).
+
+Created files:
+- `database/migrations/2026_09_04_090000_create_products_table.php`.
+- `app/Models/Product.php` — `orderItems(): HasMany` (to `OrderItem`, added in Step 14), `photoUrl(): ?string` via `Storage::disk('public')`.
+- `database/factories/ProductFactory.php`.
+- `app/Modules/Products/Requests/{StoreProductRequest,UpdateProductRequest}.php`, `app/Modules/Products/Services/ProductService.php` (`create`/`update` handle the optional uploaded photo — stored via `UploadedFile::store('products', 'public')`, old file deleted on replace; `delete()` throws a `ValidationException` if the product has any `order_items`, so a product actually used in order history can't be removed), `app/Modules/Products/Controllers/ProductController.php`, `app/Modules/Products/routes.php` (full resource incl. `DELETE`, behind `can:products.<action>`).
+- `resources/views/products/{index,create,edit,show}.blade.php`, `resources/views/products/partials/form.blade.php` — card/icon pattern; create/edit forms use `enctype="multipart/form-data"` for the photo field.
+- `tests/Feature/Products/ProductTest.php` — 8 tests: guest redirected, 403, list, create, SKU uniqueness, edit, delete (no orders), delete blocked when an `OrderItem` references the product.
+
+Deleted files:
+None.
+
+Dependencies:
+None added — file uploads use Laravel's built-in `Storage`/`UploadedFile`, no package needed. Ran `php artisan storage:link` once (creates `public/storage` → `storage/app/public`) so uploaded photos are actually web-reachable.
+
+Design notes:
+- `category` is free text, not a managed reference table — consistent with how "source" was left as free text; no CRUD-worthy volume of categories was described.
+- Delete is allowed (unlike Customers/Users' "no hard delete" pattern) but guarded by the order-history check above — a product with no order history is safe to remove outright.
+
+---
+
+## Step 14 — Orders (+ order items, Customer aggregate sync)
+
+Date: 2026-09-04
+
+Goal:
+Orders CRUD (list/create/edit/view; no delete — real transactions, same reasoning as Customers) with multiple line items per order (confirmed explicitly over the alternative of one product per order), and wiring order mutations into `Customer::recalculateOrderStats()` so the aggregate fields laid down in Step 12 (orders_count, total_orders_amount, last_order_at, completed/cancelled counts, reliability) finally get populated.
+
+Fields, as clarified over the discussion:
+- `customer_id` (required), `status` (`new`/`shipping`/`completed`/`cancelled`, Russian labels only at the UI layer), `source` (marketplace, free text — "belongs to Orders, not Customers" per the owner's Step 12 clarification), `delivery_address`, `payment_method`, `comment`, `marketplace_order_id`, `marketplace_order_name` (the marketplace's own order reference — useful once the future Sources/Integrations module pulls orders in), `total_amount` (computed, not user-entered — see below).
+- `order_items`: `product_id`, `quantity`, `price` — **price is always snapshotted from the product's current price at save time**, never taken from client input, so a later product price change doesn't retroactively rewrite historical order totals.
+
+Changed files:
+- `app/Models/Customer.php` — added `orders(): HasMany` and `recalculateOrderStats(): void`. The latter **recomputes from the `orders` table on every call** (four aggregate queries + `save()`) rather than incrementally patching counters — simpler to reason about, immune to drift bugs, acceptable cost at this scale. Called by `OrderService` after every create/update.
+- `database/seeders/RolePermissionSeeder.php` — added `orders.view`/`create`/`edit` (no `orders.delete` — no delete route to gate).
+- `resources/views/layouts/app.blade.php` — added an "Orders" sidebar link.
+
+Created files:
+- `database/migrations/2026_09_04_091000_create_orders_table.php` — creates both `orders` and `order_items` (`order_id` FK `cascadeOnDelete()`; `product_id` FK left at the DB default RESTRICT-like behavior, matching `ProductService::delete()`'s application-level check).
+- `app/Models/Order.php` — `STATUS_*` constants + `STATUS_LABELS` map (Russian labels, English-keyed storage — avoids Cyrillic values in `WHERE status = ...` queries), `customer()`, `items()`, `statusLabel()`.
+- `app/Models/OrderItem.php` — `order()`, `product()`, `lineTotal()`.
+- `database/factories/{OrderFactory,OrderItemFactory}.php`.
+- `app/Modules/Orders/Requests/{StoreOrderRequest,UpdateOrderRequest}.php` — `items` required array, `min:1`, each item's `product_id`/`quantity` validated.
+- `app/Modules/Orders/Services/OrderService.php` — `create()`/`update()` wrap the order + `syncItems()` (delete-and-recreate all line items, snapshot price, recompute `total_amount`) + `$order->customer->recalculateOrderStats()` in one `DB::transaction()`. `update()` additionally recalculates the *previous* customer's stats too when an order is reassigned to a different customer, so neither customer is left with stale aggregates.
+- `app/Modules/Orders/Controllers/OrderController.php` — thin; `create()`/`edit()` hand the full customer/product lists and `Order::STATUS_LABELS` to the view for the form's selects.
+- `app/Modules/Orders/routes.php` — no `DELETE` route.
+- `resources/views/orders/{index,create,edit,show}.blade.php`, `resources/views/orders/partials/form.blade.php` — the form includes a small vanilla-JS repeatable line-item row group (add/remove product+quantity pairs via a `<template>`, at least one row always required client-side), consistent with the sidebar-toggle/user-menu scripting already in `layouts.app`.
+- `tests/Feature/Orders/OrderTest.php` — 7 tests: guest redirected, 403, create-with-items computes `total_amount` correctly, at least one item required, creating an order updates customer aggregates, marking an order `completed` yields `reliability() === 100.0`, a `cancelled` order alongside a `completed` one yields `reliability() === 50.0`, reassigning an order's customer updates both customers' aggregates correctly.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Design notes (not architecturally significant):
+- No delete action for Orders, matching the Customers precedent — a real transaction record shouldn't be hard-deletable; correcting a mistake means editing status/items instead.
+- Stock is **not** automatically decremented/restored by order creation or status changes in this step — that's real additional scope (partial fulfillment, restock-on-cancel edge cases) that wasn't part of what was discussed; `stock` stays a manually-managed Product field for now. Flagged here so it isn't mistaken for an oversight later.
+- `total_orders_amount` sums **all** of a customer's orders regardless of status (including cancelled) — the owner described it as a plain aggregate without specifying an exclusion; easy to change to "non-cancelled only" later if that's not what's wanted.
+
+Checks:
+- `php artisan migrate --force`, `php artisan storage:link`, `php artisan db:seed --force` (re-seeds `products.*`/`orders.*` permissions onto the live `admin` role) all run against the live stack.
+- Live HTTP check against the running Apache/MySQL stack, as `genodessa@gmail.com`: created a product (`302`), created a customer (`302`), created an order with 2× that product (price 250 → total `500.00`, `302`), confirmed via `tinker` the customer's `total_orders_amount`/`orders_count`/`completed_orders_count`/`last_order_at` all updated correctly; `/orders` list shows the order with the right customer/status/amount; `/customers/{id}` shows "Надёжность: 100%". All temporary data removed afterward (order/order_items cascade-deleted with the order; product and customer deleted separately).
+
+Tests:
+- `php artisan test` — 88/88 passed (8 new Products + 7 new Orders tests), run against the testing environment's SQLite config (unmodified `phpunit.xml`).
+
+Docker:
+No image/container changes across both steps.
+
+Problems and resolution:
+None specific to Orders/Products beyond routine seed re-runs for the new permission slugs (already handled correctly by the cache-clearing fix from Step 12).
+
+Status:
+DONE
+
+Next step:
+Awaiting the project owner's next direction. Candidates: Sources/Integrations module (marketplace API keys + order ingestion — would start populating orders automatically instead of manual entry), the future API module noted in `docs/BACKLOG.md`, or stock management for Products/Orders (explicitly deferred in this step's Design notes).

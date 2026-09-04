@@ -118,6 +118,18 @@
                         <span class="label">Customers</span>
                     </a>
                 @endcan
+                @can('products.view')
+                    <a href="{{ route('products.index') }}" class="sidebar-link {{ request()->routeIs('products.*') ? 'active' : '' }}">
+                        <x-icon name="products" />
+                        <span class="label">Products</span>
+                    </a>
+                @endcan
+                @can('orders.view')
+                    <a href="{{ route('orders.index') }}" class="sidebar-link {{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                        <x-icon name="orders" />
+                        <span class="label">Orders</span>
+                    </a>
+                @endcan
                 @can('users.view')
                     <a href="{{ route('users.index') }}" class="sidebar-link {{ request()->routeIs('users.*') ? 'active' : '' }}">
                         <x-icon name="users" />
