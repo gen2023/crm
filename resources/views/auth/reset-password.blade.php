@@ -13,10 +13,10 @@
         <input type="email" id="email" name="email" value="{{ old('email', $email) }}" required autofocus>
 
         <label for="password">Новый пароль</label>
-        <input type="password" id="password" name="password" required>
+        <x-password-field name="password" required />
 
         <label for="password_confirmation">Подтверждение пароля</label>
-        <input type="password" id="password_confirmation" name="password_confirmation" required>
+        <x-password-field name="password_confirmation" required />
 
         @if ($errors->any())
             <div class="errors">

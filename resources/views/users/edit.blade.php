@@ -10,7 +10,7 @@
             @csrf
             @method('PUT')
             @include('users.partials.form', ['user' => $user])
-            <button class="btn" type="submit">Сохранить</button>
+            <button class="btn" type="submit" style="margin-top:1.5rem;">Сохранить</button>
         </form>
     </div>
 @endsection

@@ -95,6 +95,15 @@
         .permissions { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
         h1 { font-size: 1.25rem; margin-top: 0; }
 
+        .password-field { position: relative; }
+        .password-field input { padding-right: 2.5rem; }
+        .password-toggle {
+            position: absolute; right: .5rem; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: #666; display: flex; padding: .25rem;
+        }
+        .password-toggle .icon { width: 18px; height: 18px; }
+        .password-toggle:hover { color: #333; }
+
         .tab-nav { display: flex; gap: .25rem; border-bottom: 1px solid var(--color-card-border); margin-bottom: 1.5rem; }
         .tab-btn { padding: .6rem 1rem; border: none; background: none; cursor: pointer; font-size: .9rem; color: #666; border-bottom: 2px solid transparent; margin-bottom: -1px; }
         .tab-btn:hover { color: #333; }
@@ -268,6 +277,14 @@
                 });
             });
         })();
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.password-toggle');
+            if (!btn) return;
+            var input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
     </script>
 </body>
 </html>

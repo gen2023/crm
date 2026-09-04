@@ -9,7 +9,7 @@
         <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data">
             @csrf
             @include('products.partials.form', ['product' => null])
-            <button class="btn" type="submit">Создать</button>
+            <button class="btn" type="submit" style="margin-top:1.5rem;">Создать</button>
         </form>
     </div>
 @endsection

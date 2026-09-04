@@ -982,3 +982,52 @@ Work paused here at the project owner's request; hosting/deployment is postponed
   2. Should a `docs/DEPLOYMENT.md` step-by-step guide be written now (in `cms/docs/`), or wait until the VPS is actually provisioned?
 - Also still open from earlier: draggable Dashboard card reordering (answered as "worth doing, moderate effort" but not built — see Step 15/17 discussion), and the Orders/Users API endpoints noted in `docs/BACKLOG.md`.
 - No other open questions blocking work; nothing else has been decided.
+
+---
+
+## Step 19 — First production deployment (shared hosting) + password visibility toggle
+
+Date: 2026-09-04
+
+Goal:
+The pause above turned out to be short — deployment happened the same day, but via a different path than the pause note anticipated: **shared hosting, not a VPS**. The project owner already had a "Кращий" tier shared-hosting account (ukraine.com.ua) running their Joomla site, and it turned out to have everything needed (SSH, Composer, PHP 8.4 alongside the SSH-default PHP 7.4) — so both open questions from the pause note are moot (no VPS, no separate `crm/` git repo needed — this deployment never touches Docker at all). `docs/DEPLOYMENT.md` was written live, during the actual deployment, reflecting what was really done rather than written speculatively beforehand.
+
+**Target:** `https://crm.healthydriedfood.com`, document root `/home/gen2/healthydriedfood.com/crm/public`, deployed by cloning `cms`'s GitHub repo directly onto the shared host (no Docker there) and running Composer/Artisan via `/usr/local/php84/bin/php` (the SSH session's bare `php`/`composer` resolve to PHP 7.4, which is too old — every command had to use the full PHP 8.4 path explicitly).
+
+Created files:
+- `docs/DEPLOYMENT.md` — full step-by-step guide for this exact deployment path (see file for the authoritative command list); kept in sync with what actually happened, including the fixes below.
+- `resources/views/components/password-field.blade.php` — new reusable component (`<x-password-field name="..." />`): wraps a `type=password` input with a show/hide toggle button (reuses the existing `eye` icon). Applied to every password field in the app: `auth/login.blade.php`, `auth/reset-password.blade.php`, `users/partials/form.blade.php` (both `password` and `password_confirmation`).
+
+Changed files:
+- `resources/views/layouts/app.blade.php` and `resources/views/auth/layout.blade.php` — added matching `.password-field`/`.password-toggle` CSS and a small delegated-click JS handler (toggles `input.type` between `password`/`text`) to **both** shells, since login/reset-password use the separate `auth.layout` shell that doesn't share markup with the authenticated `layouts.app` shell.
+- `resources/views/{users,roles,customers,products}/{create,edit}.blade.php` — added `style="margin-top:1.5rem;"` to every form's submit button (previously only `orders/partials/form.blade.php` had this) — the project owner flagged the Users edit form's Save button sitting flush against the roles checkboxes with no breathing room; fixed consistently everywhere the same layout pattern (fields/checkboxes immediately followed by a submit button) occurs, not just on the one screen reported.
+
+Deleted files:
+None.
+
+Dependencies:
+None added.
+
+Deployment problems hit and resolved (documented here since they're specific, non-obvious gotchas of *this* hosting environment — general steps are in `DEPLOYMENT.md`):
+1. `git clone <url> crm` run from *inside* the already-existing `crm/` directory (created by the panel for the subdomain) produced a nested `crm/crm/` — fixed by cloning into `.` instead once the directory's contents were confirmed to be just the panel's placeholder `index.html` + empty `public/` (removed first).
+2. Mid-recovery, the shell's working directory itself briefly stopped resolving (`fatal: unable to get current working directory`) — the panel appears to recreate/replace the subdomain folder on some settings saves, invalidating an already-`cd`'d-into shell session. Fixed by reconnecting/`cd`-ing fresh.
+3. `DB_HOST=localhost` failed with `SQLSTATE[HY000] [2002] No such file or directory` — PHP's mysqlnd treats `localhost` as "connect via Unix socket," and the socket path built into this PHP 8.4 build didn't match. Switching to the hosting's dedicated MySQL hostname (`gen2.mysql.tools`, found in the panel's database section) resolved the transport-level issue.
+4. That then failed with `Access denied ... (using password: YES)` — root cause: the generated database password contained a `#` (`h9Zc;s2#N7`), and `.env` treats unquoted `#` as the start of a comment, silently truncating the value. Fixed by quoting the value: `DB_PASSWORD="h9Zc;s2#N7"`.
+5. After that, `No application encryption key has been specified` despite `key:generate` having already run successfully earlier — a `.env` edit made through an IDE's SFTP-backed editor (a stale local buffer opened *before* `key:generate` ran) overwrote the server's `.env` on save, wiping the generated key. Fixed by re-running `artisan key:generate --force` *after* all manual `.env` edits were finished, and flagged the risk of editing the same file through two different tools (IDE SFTP tab vs `nano` over SSH) without reloading between edits.
+6. `AdminUserSeeder` correctly skipped in production (`APP_ENV=production`, by design — see `DECISIONS.md`/Step 10) — the first production admin was created by hand via `artisan tinker` (`User::create([...])->assignRole('admin')`), currently with **placeholder name/email/password** ("Ваше имя" / `you@example.com` / a placeholder string) that the project owner intends to change via the Users UI once logged in — noted here so it isn't mistaken for a real credential if seen in a future audit-log entry or admin list.
+
+Checks:
+- Full deployment sequence completed successfully end-to-end on the live shared-hosting environment: `composer install --no-dev`, `.env` configured, `artisan key:generate`, `migrate --force` (all 12 migrations ran), `db:seed --force` (roles/permissions seeded, `AdminUserSeeder` skipped as designed), admin user created manually, `storage:link`. Site confirmed reachable and login working at `https://crm.healthydriedfood.com/login` (custom 500 error page was also incidentally confirmed working correctly — no debug info leaked — during the `APP_KEY` troubleshooting).
+- Local (dev) verification of the password-toggle/button-spacing fix: `php artisan test` — 104/104 still passing; live `curl` of `/login` confirms `password-field`/`password-toggle` markup present; live `curl` of `/users/create` (as `genodessa@gmail.com`) confirms both the toggle markup and the new button spacing.
+
+Tests:
+- `php artisan test` — 104/104 passed (no new tests this step — the two fixes are presentational/CSS+JS, not business logic; existing Feature tests already assert on form submission behavior, which is unaffected by the input markup wrapper).
+
+Docker:
+No image/container changes (this step's deployment work happened entirely on the external shared-hosting account, not the local Docker stack; the local stack was only used to verify the password-toggle/spacing fixes before pushing).
+
+Status:
+DONE
+
+Next step:
+Project owner is signing off for the day. Remaining before the production instance is fully "real": change the placeholder admin's name/email/password via the Users UI, decide on a real mail provider (password-reset emails are still `MAIL_MAILER=log` in production — see `DEPLOYMENT.md`'s "Still open" section), and issue a real API token for the website integration once ready to actually connect it. Also still open: draggable Dashboard cards, Orders/Users API endpoints (`docs/BACKLOG.md`), Sources/Integrations module.

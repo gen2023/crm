@@ -37,6 +37,15 @@
         .remember { margin-top: 1rem; font-size: .85rem; display: flex; align-items: center; gap: .4rem; }
         .aux-link { display: block; margin-top: 1rem; font-size: .85rem; text-align: center; color: var(--color-primary); text-decoration: none; }
         .aux-link:hover { text-decoration: underline; }
+
+        .password-field { position: relative; }
+        .password-field input { padding-right: 2.5rem; }
+        .password-toggle {
+            position: absolute; right: .5rem; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: #666; display: flex; padding: .25rem;
+        }
+        .password-toggle .icon { width: 18px; height: 18px; }
+        .password-toggle:hover { color: #333; }
     </style>
 </head>
 <body>
@@ -48,5 +57,15 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.password-toggle');
+            if (!btn) return;
+            var input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+    </script>
 </body>
 </html>

@@ -9,7 +9,7 @@
         <form method="POST" action="{{ route('users.store') }}">
             @csrf
             @include('users.partials.form', ['user' => null])
-            <button class="btn" type="submit">Создать</button>
+            <button class="btn" type="submit" style="margin-top:1.5rem;">Создать</button>
         </form>
     </div>
 @endsection

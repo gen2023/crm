@@ -12,7 +12,7 @@
         <input type="email" id="email" name="email" value="{{ old('email') }}" required autofocus>
 
         <label for="password">Пароль</label>
-        <input type="password" id="password" name="password" required>
+        <x-password-field name="password" required />
 
         <label class="remember">
             <input type="checkbox" name="remember_me" value="1" {{ old('remember_me') ? 'checked' : '' }}>

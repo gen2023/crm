@@ -9,10 +9,10 @@
 <input type="email" id="email" name="email" value="{{ old('email', $user?->email) }}" required>
 
 <label for="password">Пароль{{ $user ? ' (оставьте пустым, чтобы не менять)' : '' }}</label>
-<input type="password" id="password" name="password" {{ $user ? '' : 'required' }}>
+<x-password-field name="password" :required="! $user" />
 
 <label for="password_confirmation">Подтверждение пароля</label>
-<input type="password" id="password_confirmation" name="password_confirmation">
+<x-password-field name="password_confirmation" />
 
 <label for="status">Статус</label>
 <select id="status" name="status" required>
